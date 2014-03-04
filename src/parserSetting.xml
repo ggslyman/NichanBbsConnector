@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<root>
+  <bbs>
+    <name>2ちゃん</name>
+    <delimStrings><![CDATA[<>]]></delimStrings>
+    <datUri>
+      <pattern>aaaaa</pattern>
+      <colIdx>
+        <entryname>1</entryname>
+        <address>2</address>
+        <time>3</time>
+        <body>4</body>
+        <title>5</title>
+      </colIdx>
+    </datUri>
+  </bbs>
+  <bbs>
+    <name>したらば</name>
+    <delimStrings><![CDATA[<>]]></delimStrings>
+  </bbs>
+  <bbs>
+    <name>わいわいkakiko</name>
+    <delimStrings><![CDATA[<>]]></delimStrings>
+  </bbs>
+  <bbs>
+    <name>@chs</name>
+    <delimStrings><![CDATA[<>]]></delimStrings>
+  </bbs>
+</root>
