@@ -10,7 +10,6 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Net.Http;
 using System.Collections.ObjectModel;
-using System.Web;
 
 namespace NichanUrlParser
 {
@@ -19,7 +18,7 @@ namespace NichanUrlParser
         // <summary>
         // 設定ファイル名定義
         // </summary>
-        private static string settingFile = "parserSetting.xml";
+        private static string settingFile = "xml\\parserSetting.xml";
         // <summary>
         // 設定ファイル解析用オブジェクト
         // </summary>
@@ -82,10 +81,6 @@ namespace NichanUrlParser
         // </summary>
         private string encoding = "";
         // <summary>
-        // datファイルの正規表現パーシング定義
-        // </summary>
-        private string datRegex = "";
-        // <summary>
         // 板INDEXの文字エンコード(ほぼあっとちゃんねるず用)
         // </summary>
         private string bbsEncoding = "";
@@ -105,13 +100,27 @@ namespace NichanUrlParser
             parseUrl = url;
         }
 
+        // <summary>
+        // サブジェクトリストを返すゲッター
+        // </summary>
+        public ObservableCollection<Subject> getListSubjects
+        {
+            get { return listSubjects; }
+        }
+        // <summary>
+        // スレッドラインリストを返すゲッター
+        // </summary>
+        public ObservableCollection<ThreadLine> getTreadLineSubject
+        {
+            get { return listTreadLines; }
+        }
         
         // <summary>
         // コンストラクタ
         // </summary>
         public NichanUrlParser()
         {
-            if (System.IO.File.Exists(@settingFile))
+            if (System.IO.File.Exists(settingFile))
             {
                 try
                 {
@@ -119,14 +128,14 @@ namespace NichanUrlParser
                     xml.PreserveWhitespace = true;
                     xml.Load(settingFile);
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
-                    throw e;
+                    System.Console.WriteLine(ex.Message);
                 }
             }
             else
             {
-                throw new NichanUrlParserException("エラーが出たよ");
+                Console.WriteLine("設定ファイルが存在しません。");
             }
         }
 
@@ -156,11 +165,6 @@ namespace NichanUrlParser
             get { return threadName; }
         }
 
-        public string DatRegex
-        {
-            set { datRegex = value; }
-            get { return datRegex; }
-        }
         // 現在のURLのメタデータ取得
         public string getBbsType
         {
@@ -171,22 +175,6 @@ namespace NichanUrlParser
             get { return bbsName; }
         }
 
-        // <summary>
-        // サブジェクトリストを返すゲッター
-        // </summary>
-        public ObservableCollection<Subject> ListSubjects
-        {
-            get { return listSubjects; }
-        }
-        // <summary>
-        // スレッドラインリストを返すゲッター
-        // </summary>
-        public ObservableCollection<ThreadLine> TreadLineSubject
-        {
-            get { return listTreadLines; }
-        }
-
-        
         // セッティングURLの生出力(デバッグ用)
         public string getParseSettingText()
         {
@@ -333,38 +321,25 @@ namespace NichanUrlParser
                 using (System.Net.Http.HttpClient httpClient = new System.Net.Http.HttpClient())
                 {
                     // 
-                    Regex rdatRegex = new Regex(datRegex, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                    Regex datRegex = new Regex(string.Format(threadTitleRegex, subjectDelimStrings), RegexOptions.IgnoreCase | RegexOptions.Singleline);
                     // subject.txtを読み込み、スレタイを取得
                     Stream stream = await httpClient.GetStreamAsync(datUrl);
                     using (StreamReader reader = new StreamReader(stream, System.Text.Encoding.GetEncoding(encoding)))
                     {
-                        DateTime dt;
-                        int idx = 1;
+                        ThreadLine threadLine = new ThreadLine();
                         while (!reader.EndOfStream)
                         {
-                            string sDatetime = "";
                             // 1行ごとに正規表現でthreadLineの各要素を取得
-                            var datLine = reader.ReadLine();
-                            Match m = rdatRegex.Match(datLine);
+                            var subLine = reader.ReadLine();
+                            Match m = datRegex.Match(subLine);
                             if (m.Success)
                             {
-                                ThreadLine threadLine = new ThreadLine();
-                                threadLine.Name = m.Groups["name"].Value;
-                                threadLine.Url = m.Groups["url"].Value;
-                                if (Int32.Parse(m.Groups["date"].Value.Substring(0,1)) > 7)
+                                if (m.Groups["id"].Value == threadId)
                                 {
-                                    sDatetime = "19" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
+                                    threadName = m.Groups["title"].Value;
+                                    break;
                                 }
-                                else
-                                {
-                                    sDatetime = "20" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
-                                }
-                                dt = DateTime.Parse(sDatetime);
-                                threadLine.Date = DateTime.Parse(sDatetime);
-                                threadLine.Body = stritpTag(HttpUtility.HtmlDecode(m.Groups["body"].Value.Replace("<br>", "\n")));
-                                listTreadLines.Add(threadLine);
                             }
-                            idx++;
                         }
                     }
                 }
@@ -389,8 +364,6 @@ namespace NichanUrlParser
             baseUrl = "";
             threadRootUrl = "";
             threadUrl = "";
-            threadName = "";
-            bbsName = "";
             datUrl = "";
             bbsName = "";
             bbsType = "";
@@ -400,7 +373,6 @@ namespace NichanUrlParser
             subjectDelimStrings = "";
             datDelimStrings = "";
             threadRootUrlFormat = "";
-            listTreadLines.Clear();
             bool ret = false;
             // 設定ファイルからドメイン判別正規表現を読み込み、渡されたURLのチェック
             using (System.Xml.XmlNodeList eDomain = xml.GetElementsByTagName("domainRegex"))
@@ -412,31 +384,19 @@ namespace NichanUrlParser
                         @eDomain[i].InnerText,
                         System.Text.RegularExpressions.RegexOptions.ECMAScript))
                     {
-                        try
-                        {
-                            // マッチした設定の定義を読み込み
-                            System.Xml.XmlNode eBbs = eDomain[i].ParentNode;
-                            bbsId = Int32.Parse(eBbs.SelectSingleNode("id").InnerText);
-                            bbsType = eBbs.SelectSingleNode("type").InnerText;
-                            baseUrlRegex = eBbs.SelectSingleNode("baseUrlRegex").InnerText;
-                            threadUrlRegex = eBbs.SelectSingleNode("threadUrlRegex").InnerText;
-                            datUrlFormat = eBbs.SelectSingleNode("datUrlFormat").InnerText;
-                            encoding = eBbs.SelectSingleNode("encoding").InnerText;
-                            bbsEncoding = eBbs.SelectSingleNode("bbsEncoding").InnerText;
-                            subjectDelimStrings = eBbs.SelectSingleNode("subjectDelimStrings").InnerText;
-                            datDelimStrings = eBbs.SelectSingleNode("datDelimStrings").InnerText;
-                            threadRootUrlFormat = eBbs.SelectSingleNode("threadRootUrlFormat").InnerText;
-                            datRegex = eBbs.SelectSingleNode("datRegex").InnerText;
-                        }
-                        catch (Exception e)
-                        {
-                            System.Console.WriteLine("設定ファイルが正しくありません。" + e.Message);
-                        }catch
-                        {
-                            System.Console.WriteLine("設定ファイルが正しくありません。");
-                        }
-
-                            // URL種別の判別とクラスオブジェクト変数へのURL保存
+                        // マッチした設定の定義を読み込み
+                        System.Xml.XmlNode eBbs = eDomain[i].ParentNode;
+                        bbsId = Int32.Parse(eBbs.SelectSingleNode("id").InnerText);
+                        bbsType = eBbs.SelectSingleNode("type").InnerText;
+                        baseUrlRegex = eBbs.SelectSingleNode("baseUrlRegex").InnerText;
+                        threadUrlRegex = eBbs.SelectSingleNode("threadUrlRegex").InnerText;
+                        datUrlFormat = eBbs.SelectSingleNode("datUrlFormat").InnerText;
+                        encoding = eBbs.SelectSingleNode("encoding").InnerText;
+                        bbsEncoding = eBbs.SelectSingleNode("bbsEncoding").InnerText;
+                        subjectDelimStrings = eBbs.SelectSingleNode("subjectDelimStrings").InnerText;
+                        datDelimStrings = eBbs.SelectSingleNode("datDelimStrings").InnerText;
+                        threadRootUrlFormat = eBbs.SelectSingleNode("threadRootUrlFormat").InnerText;
+                        // URL種別の判別とクラスオブジェクト変数へのURL保存
 
                         // スレッドURLパースのRegexオブジェクトを作成
                         System.Text.RegularExpressions.Regex rThread =
@@ -473,26 +433,6 @@ namespace NichanUrlParser
                 }
             }
             return ret;
-        }
-
-        public static string stritpTag(string str)
-        {
-            return Regex.Replace(str, "<.*?>", String.Empty);
-        }
-
-        public void clog(string msg)
-        {
-#if DEBUG
-            System.Console.WriteLine(msg);
-#endif
-        }
-    }
-    class NichanUrlParserException : System.ApplicationException
-    {
-        // メッセージの始めにクラス名を付けてみただけ。
-        public NichanUrlParserException(string msg)
-            : base("NichanUrlParserException : " + msg)
-        {
         }
 
     }
@@ -560,11 +500,8 @@ namespace NichanUrlParser
         }
         public DateTime Date
         {
-            set { date = value; }
-        }
-        public string DateFormat
-        {
-            get { return date.ToString(); }
+            get { return Date; }
+            set { Date = value; }
         }
         public string Body
         {

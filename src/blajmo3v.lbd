@@ -10,7 +10,6 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Net.Http;
 using System.Collections.ObjectModel;
-using System.Web;
 
 namespace NichanUrlParser
 {
@@ -174,14 +173,14 @@ namespace NichanUrlParser
         // <summary>
         // サブジェクトリストを返すゲッター
         // </summary>
-        public ObservableCollection<Subject> ListSubjects
+        public ObservableCollection<Subject> getListSubjects
         {
             get { return listSubjects; }
         }
         // <summary>
         // スレッドラインリストを返すゲッター
         // </summary>
-        public ObservableCollection<ThreadLine> TreadLineSubject
+        public ObservableCollection<ThreadLine> getTreadLineSubject
         {
             get { return listTreadLines; }
         }
@@ -338,33 +337,26 @@ namespace NichanUrlParser
                     Stream stream = await httpClient.GetStreamAsync(datUrl);
                     using (StreamReader reader = new StreamReader(stream, System.Text.Encoding.GetEncoding(encoding)))
                     {
-                        DateTime dt;
+                        ThreadLine threadLine = new ThreadLine();
+                        clog(datRegex);
                         int idx = 1;
                         while (!reader.EndOfStream)
                         {
-                            string sDatetime = "";
                             // 1行ごとに正規表現でthreadLineの各要素を取得
                             var datLine = reader.ReadLine();
+                            //System.Console.WriteLine(datLine);
                             Match m = rdatRegex.Match(datLine);
                             if (m.Success)
                             {
-                                ThreadLine threadLine = new ThreadLine();
-                                threadLine.Name = m.Groups["name"].Value;
-                                threadLine.Url = m.Groups["url"].Value;
-                                if (Int32.Parse(m.Groups["date"].Value.Substring(0,1)) > 7)
-                                {
-                                    sDatetime = "19" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
+                                if(idx==1{
+                                    clog(datLine);
+                                    clog(m.Groups["name"].Value);
+                                    clog(m.Groups["url"].Value);
+                                    clog(m.Groups["date"].Value);
+                                    clog(m.Groups["time"].Value);
+                                    clog(m.Groups["body"].Value);
                                 }
-                                else
-                                {
-                                    sDatetime = "20" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
-                                }
-                                dt = DateTime.Parse(sDatetime);
-                                threadLine.Date = DateTime.Parse(sDatetime);
-                                threadLine.Body = stritpTag(HttpUtility.HtmlDecode(m.Groups["body"].Value.Replace("<br>", "\n")));
-                                listTreadLines.Add(threadLine);
                             }
-                            idx++;
                         }
                     }
                 }
@@ -400,7 +392,6 @@ namespace NichanUrlParser
             subjectDelimStrings = "";
             datDelimStrings = "";
             threadRootUrlFormat = "";
-            listTreadLines.Clear();
             bool ret = false;
             // 設定ファイルからドメイン判別正規表現を読み込み、渡されたURLのチェック
             using (System.Xml.XmlNodeList eDomain = xml.GetElementsByTagName("domainRegex"))
@@ -473,11 +464,6 @@ namespace NichanUrlParser
                 }
             }
             return ret;
-        }
-
-        public static string stritpTag(string str)
-        {
-            return Regex.Replace(str, "<.*?>", String.Empty);
         }
 
         public void clog(string msg)
@@ -560,11 +546,8 @@ namespace NichanUrlParser
         }
         public DateTime Date
         {
-            set { date = value; }
-        }
-        public string DateFormat
-        {
-            get { return date.ToString(); }
+            get { return Date; }
+            set { Date = value; }
         }
         public string Body
         {

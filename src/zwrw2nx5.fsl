@@ -361,7 +361,7 @@ namespace NichanUrlParser
                                 }
                                 dt = DateTime.Parse(sDatetime);
                                 threadLine.Date = DateTime.Parse(sDatetime);
-                                threadLine.Body = stritpTag(HttpUtility.HtmlDecode(m.Groups["body"].Value.Replace("<br>", "\n")));
+                                threadLine.Body = HttpUtility.HtmlDecode((m.Groups["body"].Value.Replace("<br>", "\n"));
                                 listTreadLines.Add(threadLine);
                             }
                             idx++;
@@ -473,11 +473,6 @@ namespace NichanUrlParser
                 }
             }
             return ret;
-        }
-
-        public static string stritpTag(string str)
-        {
-            return Regex.Replace(str, "<.*?>", String.Empty);
         }
 
         public void clog(string msg)

@@ -25,47 +25,100 @@ namespace NichanUrlParserUi
     public partial class MainWindow : Window
     {
         static public MainWindow Instance;
-        private static NichanUrlParser.NichanUrlParser nps = new NichanUrlParser.NichanUrlParser();
+        private static NichanUrlParser.NichanUrlParser nps;
         public MainWindow()
         {
-            Instance = this;
+            try
+            {
+                nps = new NichanUrlParser.NichanUrlParser();
+                Instance = this;
+            }
+            catch (Exception e)
+            {
+                addMsg(e.Message);
+            }
         }
 
-        // リストビューのソート処理
-        // http://gushwell.ldblog.jp/archives/52306883.html
-        // 
-
-        private async void Button_Click_1(object sender, RoutedEventArgs e)
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            buttonGetName.IsEnabled = false;
-            await nps.setBbsNameAsync();
-            await nps.setThreadNameAsync();
-            await nps.setSubjects();
-
-            textMsg.Text += nps.getBbsName() + "\n";
-            textMsg.Text += nps.getThreadName() + "\n";
-            textMsg.Text += nps.getThreadRootUrl() + "\n";
-            listViewSubject.ItemsSource = nps.getListSubject();
-            buttonGetName.IsEnabled = true;
+            dataGridSubjects.ItemsSource = nps.ListSubjects;
+            listViewThreadView.ItemsSource = nps.TreadLineSubject;
+            listBoxUrl.SelectedIndex = 0;
         }
 
-        private void listBoxUrl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void listBoxUrl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            dataGridSubjects.IsEnabled = false;
+            listBoxUrl.IsEnabled = false;
+            buttonSetUrl.IsEnabled = false;
             if (listBoxUrl.SelectedIndex >= 0)
             {
-                nps.setUrl(listBoxUrl.SelectedItem.ToString());
-                nps.setUrls();
-                textMsg.Text += nps.getSetUrlsLog();
-                labelBase.Content = nps.getBaseUrl();
-                labelThread.Content = nps.getThreadUrl();
-                labelDat.Content = nps.getDatUrl();
+                await getUrl(listBoxUrl.SelectedItem.ToString());
+                await nps.getThreadLines();
             }
+            buttonSetUrl.IsEnabled = true;
+            listBoxUrl.IsEnabled = true;
+            dataGridSubjects.IsEnabled = true;
         }
 
         private void formMain_Loaded(object sender, RoutedEventArgs e)
         {
-            listBoxUrl.SelectedIndex = 0;
+            //listBoxUrl.SelectedIndex = 0;
         }
+        // スレ一覧の項目ダブルクリック
+        private async void dataGridSubjects_MouseDoubleClik(object sender, MouseButtonEventArgs e)
+        {
+            dataGridSubjects.IsEnabled = false;
+            listBoxUrl.IsEnabled = false;
+            buttonSetUrl.IsEnabled = false;
+            NichanUrlParser.Subject subject = (NichanUrlParser.Subject)dataGridSubjects.SelectedItem;
+    
+            await getUrl(subject.Url);
+            await nps.getThreadLines();
+            buttonSetUrl.IsEnabled = true;
+            listBoxUrl.IsEnabled = true;
+            dataGridSubjects.IsEnabled = true;
+        }
+
+
+        private async void buttonSetUrl_Click(object sender, RoutedEventArgs e)
+        {
+            dataGridSubjects.IsEnabled = false;
+            listBoxUrl.IsEnabled = false;
+            buttonSetUrl.IsEnabled = false;
+            listBoxUrl.Items.Add(textBoxUrl.Text);
+            
+            await getUrl(textBoxUrl.Text);
+            await nps.getThreadLines();
+
+            buttonSetUrl.IsEnabled = true;
+            listBoxUrl.IsEnabled = true;
+            dataGridSubjects.IsEnabled = true;
+        }
+
+        private async Task getUrl(string url)
+        {
+            nps.setUrl(url);
+            nps.setUrls();
+            await nps.setNamesAndSubjectsAsync();
+            setLabel();
+        }
+
+        private void setLabel()
+        {
+            labelBase.Content = nps.BaseUrl;
+            labelThread.Content = nps.ThreadUrl;
+            labelDat.Content = nps.DatUrl;
+            labelBbsName.Content = nps.BbsName;
+            labelThreadName.Content = nps.ThreadName;
+        }
+        
+        private void addMsg(string msg)
+        {
+            textMsg.Text = msg + "\n" + textMsg.Text;
+
+        }
+
     }
 
 }

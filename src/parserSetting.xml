@@ -34,13 +34,7 @@
         <encoding>EUC-JP</encoding>
         <bbsEncoding>EUC-JP</bbsEncoding>
         <maxResCount>1000</maxResCount>
-        <datindex>
-            <name>1</name>
-            <address>2</address>
-            <time>3</time>
-            <body>4</body>
-            <title>5</title>
-        </datindex>
+        <datRegex><![CDATA[(?<order>.*?)<>(?<name>.*?)<>(?<url>.*?)<>\d{2}(?<date>\d{2}/\d{2}/\d{2}?)\(.*\) (?<time>\d{2}\:\d{2}\:\d{2}?)<>(?<body>.*?)<>(?<title>.*?)<>(?<id>.*?)]]></datRegex>
     </bbs>
     <bbs>
         <id>3</id>
@@ -56,13 +50,7 @@
         <encoding>Shift_JIS</encoding>
         <bbsEncoding>Shift_JIS</bbsEncoding>
         <maxResCount>1001</maxResCount>
-        <datindex>
-            <name>1</name>
-            <address>2</address>
-            <time>3</time>datUrlFormat
-            <body>4</body>
-            <title>5</title>
-        </datindex>
+        <datRegex><![CDATA[(?<name>.*?)<>(?<url>.*?)<>(?<date>\d{2}/\d{2}/\d{2}?) (?<time>\d{2}\:\d{2}\:\d{2}?)( ID:)?(?<id>.*?)<>(?<body>.*?)<>]]></datRegex>
     </bbs>
     <bbs>
         <id>4</id>
@@ -79,12 +67,6 @@
         <datUrlFormat>{0}{1}/dat/{2}.dat</datUrlFormat>
         <encoding></encoding>
         <maxResCount>1000</maxResCount>
-        <datindex>
-            <name>1</name>
-            <address>2</address>
-            <time>3</time>
-            <body>4</body>
-            <title>5</title>
-        </datindex>
+        <datRegex><![CDATA[(?<name>.*?)<>(?<url>.*?)<>\d{2}(?<date>\d{2}/\d{2}/\d{2}?)\(.*\) (?<time>\d{2}\:\d{2}\:\d{2}?)( ID:)?(?<id>.*?)<>(?<body>.*?)<>]]></datRegex>
     </bbs>
 </root>
