@@ -14,6 +14,8 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using NichanUrlParserUi;
 using NichanUrlParser;
+using System.Collections;
+using System.Windows.Forms;
 
 namespace NichanUrlParserUi
 {
@@ -29,6 +31,10 @@ namespace NichanUrlParserUi
             Instance = this;
         }
 
+        // リストビューのソート処理
+        // http://gushwell.ldblog.jp/archives/52306883.html
+        // 
+
         private async void Button_Click_1(object sender, RoutedEventArgs e)
         {
             buttonGetName.IsEnabled = false;
@@ -39,8 +45,7 @@ namespace NichanUrlParserUi
             textMsg.Text += nps.getBbsName() + "\n";
             textMsg.Text += nps.getThreadName() + "\n";
             textMsg.Text += nps.getThreadRootUrl() + "\n";
-            listViewSubject.ItemsSource = nps.listSubjects;
-            
+            listViewSubject.ItemsSource = nps.getListSubject();
             buttonGetName.IsEnabled = true;
         }
 
@@ -61,6 +66,6 @@ namespace NichanUrlParserUi
         {
             listBoxUrl.SelectedIndex = 0;
         }
-
     }
+
 }

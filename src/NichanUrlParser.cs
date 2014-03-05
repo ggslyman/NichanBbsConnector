@@ -15,39 +15,113 @@ namespace NichanUrlParser
 {
     public class NichanUrlParser
     {
+        // <summary>
+        // 設定ファイル名定義
+        // </summary>
         private static string settingFile = "parserSetting.xml";
+        // <summary>
+        // 設定ファイル解析用オブジェクト
+        // </summary>
         private static XmlDocument xml = new XmlDocument();
+
+        // <summary>
+        // 解析元URL
+        // </summary>
         private string parseUrl = "";
+        // <summary>
+        // XML設定ファイル上の識別ID(現状、処理には使っていない)
+        // </summary>
         private int bbsId = 0;
+        // <summary>
         // したらば、わいわいなどの運営サイト名
+        // </summary>
         private string bbsType = "";
+        // <summary>
         // 板名
+        // </summary>
         private string bbsName = "";
+        // <summary>
         // 板URL
+        // </summary>
         private string baseUrl = "";
+        // <summary>
         // スレッドIDを除いた全スレッド共通部分のURL
+        // </summary>
         private string threadRootUrl = "";
+        // <summary>
         // 現在開いているスレッド名
+        // </summary>
         private string threadName = "";
+        // <summary>
         // 現在開いているスレッドURL
+        // </summary>
         private string threadUrl = "";
+        // <summary>
         // 現在開いているスレッドID
+        // </summary>
         private string threadId = "";
+        // <summary>
         // 現在開いているスレッドのdatファイルURL
+        // </summary>
         private string datUrl = "";
+        // <summary>
         // subject.txtの区切り文字
+        // </summary>
         private string subjectDelimStrings = "";
+        // <summary>
         // datファイルの区切り文字
+        // </summary>
         private string datDelimStrings = "";
-        // subject.txtの区切り文字
+        // <summary>
+        // スレッドルートURLの変換用フォーマット
+        // </summary>
         private string threadRootUrlFormat = "";
+        // <summary>
+        // datファイルの文字エンコード
+        // </summary>
         private string encoding = "";
+        // <summary>
+        // 板INDEXの文字エンコード(ほぼあっとちゃんねるず用)
+        // </summary>
         private string bbsEncoding = "";
-        public ObservableCollection<Subject> listSubjects = new ObservableCollection<Subject>();
+
+        // <summary>
+        // subject.txtの内容を格納するコレクション
+        // </summary>
+        private ObservableCollection<Subject> listSubjects = new ObservableCollection<Subject>();
+        // <summary>
+        // スレッドのレス内容を格納するコレクション
+        // </summary>
+        private ObservableCollection<ThreadLine> listTreadLines = new ObservableCollection<ThreadLine>();
+
+        // 取得するURLの設定関数
+        public void setUrl(string url)
+        {
+            parseUrl = url;
+        }
+
+        // <summary>
+        // サブジェクトリストを返すゲッター
+        // </summary>
+        public ObservableCollection<Subject> getListSubject()
+        {
+            return listSubjects;
+        }
+        // <summary>
+        // スレッドラインリストを返すゲッター
+        // </summary>
+        public ObservableCollection<ThreadLine> getTreadLineSubject()
+        {
+            return listTreadLines;
+        }
+        
+        // <summary>
+        // コンストラクタ
+        // </summary>
         public NichanUrlParser()
         {
             if (File.Exists(settingFile))
-            {//ファイルが有るかどうか
+            {
                 try
                 {
                     Console.WriteLine("読込OK");
@@ -56,17 +130,13 @@ namespace NichanUrlParser
                 }
                 catch (Exception ex)
                 {
-                    System.Console.WriteLine(ex.Message);//エラーメッセージ表示
+                    System.Console.WriteLine(ex.Message);
                 }
             }
             else
             {
                 Console.WriteLine("設定ファイルが存在しません。");
             }
-        }
-        // 取得するURLの設定関数
-        public void setUrl(string url){
-            parseUrl = url;
         }
 
         //以下各種URLの取得関数
@@ -119,13 +189,16 @@ namespace NichanUrlParser
         public string getSetUrlsLog(){
             return bbsId + ":" + bbsType + "\n" + baseUrl + "\n" + threadUrl + "\n" + threadRootUrl + "\n";
         }
+
+        // <summary>
         // 板名の取得
+        // </summary>
         public async Task setBbsNameAsync()
         {
-            bbsName = "";
             HttpClient httpClient = new HttpClient();
             if (baseUrl != "")
             {
+                bbsName = "";
                 // スレトップをすべて読み込み板名を取得
                 var stream = await httpClient.GetStreamAsync(baseUrl);
                 var baseHtml = "";
@@ -146,7 +219,9 @@ namespace NichanUrlParser
             }
         }
 
+        // <summary>
         // スレ一覧の取得
+        // </summary>
         public async Task setSubjects()
         {
             // subject.txtを読み込み、スレタイを取得
@@ -155,39 +230,45 @@ namespace NichanUrlParser
             Regex titleRegex = new Regex(string.Format(threadTitleRegex,subjectDelimStrings), RegexOptions.IgnoreCase | RegexOptions.Singleline);
             using (var reader = new StreamReader(stream, System.Text.Encoding.GetEncoding(encoding)))
             {
-                listSubjects.Clear();
-                while (!reader.EndOfStream)
-                {
-                    // 1行ごとに正規表現でスレタイを取得
-                    var subLine = reader.ReadLine();
-                    Match m = titleRegex.Match(subLine);
-                    if (m.Success)
+                if (!reader.EndOfStream) { 
+                    listSubjects.Clear();
+                    var subjectOrder = 1;
+                    while (!reader.EndOfStream)
                     {
-                        Subject bufSubject = new Subject();
-                        bufSubject.Title = m.Groups["title"].Value;
-                        bufSubject.Url = threadRootUrl + m.Groups["id"].Value + "/";
-                        bufSubject.ResCount = Int32.Parse(m.Groups["resCount"].Value);
-                        DateTime orgTime = DateTime.Parse("1970/1/1 00:00:00");
-                        double unixTime = (double)((DateTime.Now.ToFileTimeUtc() - orgTime.ToFileTimeUtc()) / 10000000) - System.Convert.ToDouble(m.Groups["id"].Value);
-                        if (unixTime > 0.01f)
+                        // 1行ごとに正規表現でスレタイを取得
+                        var subLine = reader.ReadLine();
+                        Match m = titleRegex.Match(subLine);
+                        if (m.Success)
                         {
-                            double power = System.Convert.ToDouble(bufSubject.ResCount) / unixTime * 60.0f * 60.0f * 24.0f;
-                            bufSubject.Power = power;
+                            Subject bufSubject = new Subject();
+                            bufSubject.Order = subjectOrder++;
+                            bufSubject.Title = m.Groups["title"].Value;
+                            bufSubject.Url = threadRootUrl + m.Groups["id"].Value + "/";
+                            bufSubject.ResCount = Int32.Parse(m.Groups["resCount"].Value);
+                            DateTime orgTime = DateTime.Parse("1970/1/1 00:00:00");
+                            double unixTime = (double)((DateTime.Now.ToFileTimeUtc() - orgTime.ToFileTimeUtc()) / 10000000) - System.Convert.ToDouble(m.Groups["id"].Value);
+                            if (unixTime > 0.01f)
+                            {
+                                double power = System.Convert.ToDouble(bufSubject.ResCount) / unixTime * 60.0f * 60.0f * 24.0f;
+                                bufSubject.Power = power;
+                            }
+                            listSubjects.Add(bufSubject);
+                            if (m.Groups["id"].Value == threadId) threadName = m.Groups["title"].Value;
                         }
-                        listSubjects.Add(bufSubject);
-                        if (m.Groups["id"].Value == threadId) threadName = m.Groups["title"].Value;
                     }
                 }
             }
         }
 
+        // <summary>
         // 現在のスレタイの取得
+        // </summary>
         public async Task setThreadNameAsync()
         {
-            threadName = "";
             HttpClient httpClient = new HttpClient();
             if (threadId != "")
             {
+                threadName = "";
                 Regex titleRegex = new Regex(string.Format(threadTitleRegex, subjectDelimStrings), RegexOptions.IgnoreCase | RegexOptions.Singleline);
                 // subject.txtを読み込み、スレタイを取得
                 var stream = await httpClient.GetStreamAsync(baseUrl + "subject.txt");
@@ -210,7 +291,28 @@ namespace NichanUrlParser
                 }
             }
         }
+        // <summary>
+        // 現在のオブジェクトにスレッドURLが設定されているときに、datを取得してコレクションに追加する関数
+        // 参考URL：http://www.studyinghttp.net/range
+        // 上記URLを参考にdatの差分取得をする
+        // Gzipの時はどうなる？
+        // 差分取得について：http://sonson.jp/?p=541
+        // </summary>
+        public async Task getThreadLines()
+        {
+
+        }
         
+        // <summary>
+        // オブジェクトに設定されたURLから各コンテンツへアクセスするURLやパーシング用パラメータを生成
+        // baseUrl              板INDEXのURL
+        // threadRootUrl        スレッドのURLからスレッドID部分を除いたもの
+        // threadI              スレッドの識別IDL
+        // subjectDelimString   subject.txtの1行内の項目区切り文字
+        // datDelimStrings      datファイルの1行内の項目区切り文字
+        // subjectDelimString   subject.txtの1行区切り文字
+        // threadRootUrlFormat  スレッドURLを生成するためのフォーマット(string.Format準拠)
+        // </summary>
         public bool setUrls()
         {
             string baseUrlRegex = "";
@@ -288,13 +390,16 @@ namespace NichanUrlParser
         }
 
     }
-    // subject.txtを1行格納するクラス
+    // <summary>
+    // subject.txtを1行に相当するクラス
+    // </summary>
     public class Subject
     {
         private string title;
         private string url;
         private int resCount;
         private double power;
+        private int order;
         public string Title
         {
             get { return title; }
@@ -314,6 +419,53 @@ namespace NichanUrlParser
         {
             get { return power; }
             set { power = value; }
+        }
+        public int Order
+        {
+            get { return order; }
+            set { order = value; }
+        }
+    }
+    // <summary>
+    // datファイルの1行に相当するクラス
+    // </summary>
+    public class ThreadLine
+    {
+        private int number;
+        private string name;
+        private string url;
+        private DateTime date;
+        private string body;
+        private string id;
+        public int Number
+        {
+            get { return number; }
+            set { number = value; }
+        }
+        public string Name
+        {
+            get { return name; }
+            set { name = value; }
+        }
+        public string Url
+        {
+            get { return url; }
+            set { url = value; }
+        }
+        public DateTime Date
+        {
+            get { return Date; }
+            set { Date = value; }
+        }
+        public string Body
+        {
+            get { return body; }
+            set { body = value; }
+        }
+        public string Id
+        {
+            get { return id; }
+            set { id = value; }
         }
     }
 }
