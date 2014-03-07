@@ -180,7 +180,7 @@ namespace NichanUrlParser
         // <summary>
         // スレッドラインリストを返すゲッター
         // </summary>
-        public ObservableCollection<ThreadLine> ListTreadLines
+        public ObservableCollection<ThreadLine> TreadLineSubject
         {
             get { return listTreadLines; }
         }
@@ -205,7 +205,7 @@ namespace NichanUrlParser
         {
             await setBbsNameAsync();
             await setThreadNameAsync();
-            await setSubjectsAsync();
+            await setSubjects();
         }
         // <summary>
         // 板名の取得
@@ -241,7 +241,7 @@ namespace NichanUrlParser
         // <summary>
         // スレ一覧の取得
         // </summary>
-        public async Task setSubjectsAsync()
+        public async Task setSubjects()
         {
             if (baseUrl != "")
             {
