@@ -45,6 +45,8 @@ namespace NichanUrlParserUi
         {
             await nps.getThreadLines();
             listViewThreadView.ItemsSource = nps.ListTreadLines;
+            addMsg(nps.DatSize.ToString());
+            addMsg(nps.DatUrl);
         }
 
         private void setLabel()

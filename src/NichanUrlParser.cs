@@ -89,6 +89,11 @@ namespace NichanUrlParser
         private string bbsEncoding = "";
 
         // <summary>
+        // 取得したdatのbyte数
+        // </summary>
+        private int datSize;
+
+        // <summary>
         // subject.txtの内容を格納するコレクション
         // </summary>
         private ObservableCollection<Subject> listSubjects = new ObservableCollection<Subject>();
@@ -194,6 +199,12 @@ namespace NichanUrlParser
         public string getSetUrlsLog()
         {
             return bbsId + ":" + bbsType + "\n" + baseUrl + "\n" + threadUrl + "\n" + threadRootUrl + "\n";
+        }
+
+        // 現在のdatサイズのバイト数を確認するためのデバッグ関数
+        public int DatSize
+        {
+            get { return datSize; }
         }
 
         // subject.txtのパーサパターン
@@ -325,6 +336,8 @@ namespace NichanUrlParser
         // 上記URLを参考にdatの差分取得をする
         // Gzipの時はどうなる？
         // 差分取得について：http://sonson.jp/?p=541
+        // 差分についてはしたらばとその他で取得方法違うようなので保留
+        // そもそもストリームリーダーでエンコードしてる場合にサーバ側の保有バイト数が取れるかが謎
         // </summary>
         public async Task getThreadLines()
         {
@@ -332,18 +345,32 @@ namespace NichanUrlParser
             {
                 using (System.Net.Http.HttpClient httpClient = new System.Net.Http.HttpClient())
                 {
+                    httpClient.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
+                    httpClient.DefaultRequestHeaders.Add("Accept", "text/plain");
+                    //if (listTreadLines.Count > 0)
+                    //{
+                    //    httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "identity");
+                    //}
+                    //else
+                    //{ 
+                        httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "gzip");
+                    //}
+
                     Regex rdatRegex = new Regex(datRegex, RegexOptions.IgnoreCase | RegexOptions.Singleline);
                     // subject.txtを読み込み、スレタイを取得
                     Stream stream = await httpClient.GetStreamAsync(datUrl);
                     using (StreamReader reader = new StreamReader(stream, System.Text.Encoding.GetEncoding(encoding)))
                     {
+                        // ここまできたらデータは取得出来てるので、既存のdatファイルをクリア
+                        listTreadLines.Clear();
                         DateTime dt;
                         int idx = 1;
                         while (!reader.EndOfStream)
                         {
                             string sDatetime = "";
                             // 1行ごとに正規表現でthreadLineの各要素を取得
-                            var datLine = reader.ReadLine();
+                            string datLine = reader.ReadLine();
+                            //datSize += datLine.Length;
                             Match m = rdatRegex.Match(datLine);
                             if (m.Success)
                             {
@@ -396,7 +423,7 @@ namespace NichanUrlParser
             subjectDelimStrings = "";
             datDelimStrings = "";
             threadRootUrlFormat = "";
-
+            datSize = 0;
             threadName = "";
             bbsName = "";
             listTreadLines.Clear();
