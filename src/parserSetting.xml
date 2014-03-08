@@ -4,21 +4,17 @@
         <id>1</id>
         <type>2ちゃん</type>
         <datDelimStrings><![CDATA[<>]]></datDelimStrings>
-        <subjectDelimStrings><![CDATA[<>]]></subjectDelimStrings>
+        <subjectDelimStrings><![CDATA[,]]></subjectDelimStrings>
+        <idDelimStrings><![CDATA[ ID:]]></idDelimStrings>
         <domainRegex>http://.+2ch\.net/</domainRegex>
-        <baseUrlRegex>aaa</baseUrlRegex>
-        <threadUrlRegex></threadUrlRegex>
-        <datUrlFormat>http://$host/$bbs/dat/$key.dat</datUrlFormat>
+        <baseUrlRegex>(http://.+2ch\.net/)(\d+)/</baseUrlRegex>
+        <threadUrlRegex>(http://.+2ch\.net/)test/read.cgi/(\w+)/(\d+)/</threadUrlRegex>
+        <threadRootUrlFormat>{0}test/read.cgi/{1}/</threadRootUrlFormat>
+        <datUrlFormat>{0}{1}/dat/{2}.dat</datUrlFormat>
         <encoding>Shift_JIS</encoding>
         <bbsEncoding>Shift_JIS</bbsEncoding>
         <maxResCount>1000</maxResCount>
-        <datindex>
-            <name>1</name>
-            <address>2</address>
-            <time>3</time>
-            <body>4</body>
-            <title>5</title>
-        </datindex>
+        <datRegex><![CDATA[(?<name>.*?)<>(?<url>.*?)<>\d{2}(?<date>\d{2}/\d{2}/\d{2}?)\(.*\) (?<time>\d{2}\:\d{2}\:\d{2}?)( ID:)?(?<id>.*?)<>(?<body>.*?)<>(?<title>.*?)]]></datRegex>
     </bbs>
     <bbs>
         <id>2</id>

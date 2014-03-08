@@ -39,6 +39,8 @@ namespace NichanUrlParserUi
             datGridBbsList.ItemsSource = listBbs;
             dataGridSubjects.ItemsSource = nps.ListSubjects;
             setLabel();
+            addMsg(nps.Encoding);
+            addMsg(nps.BbsEncoding);
         }
 
         private async Task getThread()
@@ -66,6 +68,7 @@ namespace NichanUrlParserUi
         }
         private void webLoadControlEnabled(bool enabled){
             dataGridSubjects.IsEnabled = enabled;
+            datGridBbsList.IsEnabled = enabled;
             listBoxUrl.IsEnabled = enabled;
             buttonSetUrl.IsEnabled = enabled;
         }

@@ -7,7 +7,7 @@
         <DockPanel DockPanel.Dock="Top" x:Name="DockPanelUrlNavi" HorizontalAlignment="Left" Height="auto" LastChildFill="False" VerticalAlignment="Top" Width="auto">
             <StackPanel>
                 <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal">
-                    <TextBox x:Name="textBoxUrl" HorizontalAlignment="Left" Height="20" VerticalAlignment="Top" Width="600" AcceptsReturn="True" MaxLines="1"/>
+                    <TextBox x:Name="textBoxUrl" HorizontalAlignment="Left" Height="20" VerticalAlignment="Top" Width="600" AcceptsReturn="False" MaxLines="1"/>
                     <Button x:Name="buttonSetUrl" Content="Load" HorizontalAlignment="Left" Height="20" VerticalAlignment="Top" Width="100" SnapsToDevicePixels="True" Click="buttonSetUrl_Click"/>
                 </WrapPanel>
                 <ListBox x:Name="listBoxUrl" HorizontalAlignment="Left" Height="91" VerticalAlignment="Top" MinWidth="700" SelectionChanged="listBoxUrl_SelectionChanged" />

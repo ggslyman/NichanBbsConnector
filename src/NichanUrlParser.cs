@@ -128,6 +128,16 @@ namespace NichanUrlParser
             get { return threadName; }
         }
 
+        public string Encoding
+        {
+            get { return encoding; }
+        }
+
+        public string BbsEncoding
+        {
+            get { return bbsEncoding; }
+        }
+
         public string DatRegex
         {
             set { datRegex = value; }
@@ -357,45 +367,49 @@ namespace NichanUrlParser
                     //}
 
                     Regex rdatRegex = new Regex(datRegex, RegexOptions.IgnoreCase | RegexOptions.Singleline);
-                    // subject.txtを読み込み、スレタイを取得
+                    System.Console.WriteLine(datRegex);
+                    System.Console.WriteLine(datRegex);
                     Stream stream = await httpClient.GetStreamAsync(datUrl);
                     using (StreamReader reader = new StreamReader(stream, System.Text.Encoding.GetEncoding(encoding)))
                     {
-                        // ここまできたらデータは取得出来てるので、既存のdatファイルをクリア
-                        listTreadLines.Clear();
+                        ObservableCollection<ThreadLine> bufListthreadLines = new ObservableCollection<ThreadLine>();
                         DateTime dt;
                         int idx = 1;
-                        while (!reader.EndOfStream)
+                        await Task.Run(() =>
                         {
-                            string sDatetime = "";
-                            // 1行ごとに正規表現でthreadLineの各要素を取得
-                            string datLine = reader.ReadLine();
-                            //datSize += datLine.Length;
-                            Match m = rdatRegex.Match(datLine);
-                            if (m.Success)
+                            ThreadLine threadLine = new ThreadLine();
+                            while (!reader.EndOfStream)
                             {
-                                ThreadLine threadLine = new ThreadLine();
-                                threadLine.Name = m.Groups["name"].Value;
-                                threadLine.Url = m.Groups["url"].Value;
-                                // わいわいなどは西暦が下2ケタなのでむりくり4ケタに修正
-                                if (Int32.Parse(m.Groups["date"].Value.Substring(0, 1)) >= 8)
+                                string sDatetime = "";
+                                // 1行ごとに正規表現でthreadLineの各要素を取得
+                                string datLine = reader.ReadLine();
+                                //datSize += datLine.Length;
+                                Match m = rdatRegex.Match(datLine);
+                                if (m.Success)
                                 {
-                                    sDatetime = "19" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
+                                    threadLine.Name = m.Groups["name"].Value;
+                                    threadLine.Url = m.Groups["url"].Value;
+                                    // わいわいなどは西暦が下2ケタなのでむりくり4ケタに修正
+                                    if (Int32.Parse(m.Groups["date"].Value.Substring(0, 1)) >= 8)
+                                    {
+                                        sDatetime = "19" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
+                                    }
+                                    else
+                                    {
+                                        sDatetime = "20" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
+                                    }
+                                    dt = DateTime.Parse(sDatetime);
+                                    threadLine.Date = DateTime.Parse(sDatetime);
+                                    // 改行をhtmlタグから制御文字に変換、htmlエンコードされた特殊文字(&amp;等)をデコード、
+                                    // HTMLタグを除去(>>1等のレス番指定やあっとちゃんねるずのURLにつくアンカータグ除去のため)
+                                    // クラスに保存するデータは生データにする方針のため。再度アンカーなどを付けるのは各クライアントに任せる
+                                    threadLine.Body = stritpTag(HttpUtility.HtmlDecode(m.Groups["body"].Value.Replace("<br>", "\n")));
+                                    bufListthreadLines.Add(threadLine);
                                 }
-                                else
-                                {
-                                    sDatetime = "20" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
-                                }
-                                dt = DateTime.Parse(sDatetime);
-                                threadLine.Date = DateTime.Parse(sDatetime);
-                                // 改行をhtmlタグから制御文字に変換、htmlエンコードされた特殊文字(&amp;等)をデコード、
-                                // HTMLタグを除去(>>1等のレス番指定やあっとちゃんねるずのURLにつくアンカータグ除去のため)
-                                // クラスに保存するデータは生データにする方針のため。再度アンカーなどを付けるのは各クライアントに任せる
-                                threadLine.Body = stritpTag(HttpUtility.HtmlDecode(m.Groups["body"].Value.Replace("<br>", "\n")));
-                                listTreadLines.Add(threadLine);
+                                idx++;
                             }
-                            idx++;
-                        }
+                        });
+                        listTreadLines = bufListthreadLines;
                     }
                 }
             }
