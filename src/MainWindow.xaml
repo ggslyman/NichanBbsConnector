@@ -14,7 +14,7 @@
             </StackPanel>
             <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal">
                 <DataGrid x:Name="datGridBbsList" HorizontalAlignment="Left" MinHeight="150" VerticalAlignment="Top" MinWidth="300"/>
-                <DataGrid x:Name="dataGridSubjects" HorizontalAlignment="Left" MinHeight="150" VerticalAlignment="Top" Width="300" EnableColumnVirtualization="True" IsReadOnly="True" IsTextSearchEnabled="True" MouseLeftButtonUp="dataGridSubjects_MouseLeftButtonUp"/>
+                <DataGrid x:Name="dataGridSubjects" HorizontalAlignment="Left" MinHeight="150" VerticalAlignment="Top" Width="300" EnableColumnVirtualization="True" IsReadOnly="True" IsTextSearchEnabled="True" MouseLeftButtonUp="dataGridSubjects_MouseLeftButtonUp" Height="150"/>
             </WrapPanel>
         </DockPanel>
         <DockPanel x:Name="DoclPanelLog" DockPanel.Dock="Bottom" HorizontalAlignment="Stretch" LastChildFill="True" Width="auto" Height="50" VerticalAlignment="Top">

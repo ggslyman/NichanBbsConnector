@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -12,8 +11,6 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-using NichanUrlParserUi;
-using NichanUrlParser;
 using System.Collections;
 using System.Windows.Forms;
 using System.Collections.ObjectModel;
@@ -26,16 +23,28 @@ namespace NichanUrlParserUi
     public partial class MainWindow : Window
     {
         static public MainWindow Instance;
-        private static NichanUrlParser.NichanUrlParser nps;
-        private ObservableCollection<bbs> listBbs;
+        private static NichanUrlParser.NichanUrlParser nps = new NichanUrlParser.NichanUrlParser();
+        private ObservableCollection<Bbs> listBbs = new ObservableCollection<Bbs>();
 
         private async Task getUrl(string url)
         {
             nps.setUrl(url);
             nps.setUrls();
             await nps.setNamesAndSubjectsAsync();
-            addMsg(nps.ListSubjects.Count.ToString());
+            Bbs bufBbs = new Bbs();
+            bufBbs.Title = nps.BbsName;
+            bufBbs.Url = nps.BaseUrl;
+            bufBbs.Order = 1;
+            listBbs.Add(bufBbs);
+            datGridBbsList.ItemsSource = listBbs;
+            dataGridSubjects.ItemsSource = nps.ListSubjects;
             setLabel();
+        }
+
+        private async Task getThread()
+        {
+            await nps.getThreadLines();
+            listViewThreadView.ItemsSource = nps.ListTreadLines;
         }
 
         private void setLabel()
@@ -63,7 +72,6 @@ namespace NichanUrlParserUi
         {
             try
             {
-                nps = new NichanUrlParser.NichanUrlParser();
                 Instance = this;
             }
             catch (Exception e)
@@ -74,8 +82,6 @@ namespace NichanUrlParserUi
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            dataGridSubjects.ItemsSource = nps.ListSubjects;
-            listViewThreadView.ItemsSource = nps.ListTreadLines;
             listBoxUrl.SelectedIndex = 0;
         }
 
@@ -85,7 +91,7 @@ namespace NichanUrlParserUi
             if (listBoxUrl.SelectedIndex >= 0)
             {
                 await getUrl(listBoxUrl.SelectedItem.ToString());
-                await nps.getThreadLines();
+                await getThread();
             }
             webLoadControlEnabled(true);
         }
@@ -101,7 +107,7 @@ namespace NichanUrlParserUi
             listBoxUrl.Items.Add(textBoxUrl.Text);
             
             await getUrl(textBoxUrl.Text);
-            await nps.getThreadLines();
+            await getThread();
 
             webLoadControlEnabled(true);
         }
@@ -114,14 +120,14 @@ namespace NichanUrlParserUi
                 NichanUrlParser.Subject subject = (NichanUrlParser.Subject)dataGridSubjects.SelectedItem;
 
                 await getUrl(subject.Url);
-                await nps.getThreadLines();
+                await getThread();
 
                 webLoadControlEnabled(true);
             }
         }
 
     }
-    class bbs
+    class Bbs
     {
         private string title;
         private string url;

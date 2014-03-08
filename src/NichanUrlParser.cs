@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
-using System.Xml.Linq;
 using System.Xml.XPath;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -98,37 +97,6 @@ namespace NichanUrlParser
         // </summary>
         private ObservableCollection<ThreadLine> listTreadLines = new ObservableCollection<ThreadLine>();
 
-        // 取得するURLの設定関数
-        public void setUrl(string url)
-        {
-            parseUrl = url;
-        }
-
-        
-        // <summary>
-        // コンストラクタ
-        // </summary>
-        public NichanUrlParser()
-        {
-            if (System.IO.File.Exists(@settingFile))
-            {
-                try
-                {
-                    Console.WriteLine("読込OK");
-                    xml.PreserveWhitespace = true;
-                    xml.Load(settingFile);
-                }
-                catch (Exception e)
-                {
-                    throw e;
-                }
-            }
-            else
-            {
-                throw new NichanUrlParserException("エラーが出たよ");
-            }
-        }
-
         //以下各種URLのゲッター
         public string BaseUrl
         {
@@ -185,28 +153,61 @@ namespace NichanUrlParser
             get { return listTreadLines; }
         }
 
-        
-        // セッティングURLの生出力(デバッグ用)
+        // 取得するURLの設定関数
+        public void setUrl(string url)
+        {
+            parseUrl = url;
+        }
+
+
+        // <summary>
+        // コンストラクタ
+        // 設定ファイルの存在チェックのみを行いインスタンスを返す
+        // </summary>
+        public NichanUrlParser()
+        {
+            if (System.IO.File.Exists(@settingFile))
+            {
+                try
+                {
+                    xml.PreserveWhitespace = true;
+                    xml.Load(settingFile);
+                }
+                catch (Exception e)
+                {
+                    throw e;
+                }
+            }
+            else
+            {
+                throw new NichanUrlParserException("設定ファイルが見つかりません");
+            }
+        }
+
+        // セッティングXMLの生出力(デバッグ用)
         public string getParseSettingText()
         {
             return xml.InnerXml;//テキストエリアにタグごとXMLを表示
         }
 
-        // subject.txtのパーサパターン
-        private static string threadTitleRegex = "(?<id>\\d+?)\\.\\w+...*{0}(?<title>.*?)\\((?<resCount>\\d+?)\\)$";
-
-
         // URLパースのログを文字列で返す(デバッグ用)
-        public string getSetUrlsLog(){
+        public string getSetUrlsLog()
+        {
             return bbsId + ":" + bbsType + "\n" + baseUrl + "\n" + threadUrl + "\n" + threadRootUrl + "\n";
         }
 
+        // subject.txtのパーサパターン
+        // ここは基本的に固定で大丈夫だとは思うが、これだけ定数にするのも微妙？
+        private static string threadTitleRegex = "(?<id>\\d+?)\\.\\w+...*{0}(?<title>.*?)\\((?<resCount>\\d+?)\\)$";
+
+        // 一括コール用ファンクション
         public async Task setNamesAndSubjectsAsync()
         {
             await setBbsNameAsync();
             await setThreadNameAsync();
             await setSubjectsAsync();
         }
+
         // <summary>
         // 板名の取得
         // </summary>
@@ -215,7 +216,7 @@ namespace NichanUrlParser
             if (baseUrl != "")
             {
                 using (System.Net.Http.HttpClient httpClient = new System.Net.Http.HttpClient())
-                { 
+                {
                     bbsName = "";
                     // スレトップをすべて読み込み板名を取得
                     Stream stream = await httpClient.GetStreamAsync(baseUrl);
@@ -331,7 +332,6 @@ namespace NichanUrlParser
             {
                 using (System.Net.Http.HttpClient httpClient = new System.Net.Http.HttpClient())
                 {
-                    // 
                     Regex rdatRegex = new Regex(datRegex, RegexOptions.IgnoreCase | RegexOptions.Singleline);
                     // subject.txtを読み込み、スレタイを取得
                     Stream stream = await httpClient.GetStreamAsync(datUrl);
@@ -350,7 +350,8 @@ namespace NichanUrlParser
                                 ThreadLine threadLine = new ThreadLine();
                                 threadLine.Name = m.Groups["name"].Value;
                                 threadLine.Url = m.Groups["url"].Value;
-                                if (Int32.Parse(m.Groups["date"].Value.Substring(0,1)) > 7)
+                                // わいわいなどは西暦が下2ケタなのでむりくり4ケタに修正
+                                if (Int32.Parse(m.Groups["date"].Value.Substring(0, 1)) >= 8)
                                 {
                                     sDatetime = "19" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
                                 }
@@ -360,6 +361,9 @@ namespace NichanUrlParser
                                 }
                                 dt = DateTime.Parse(sDatetime);
                                 threadLine.Date = DateTime.Parse(sDatetime);
+                                // 改行をhtmlタグから制御文字に変換、htmlエンコードされた特殊文字(&amp;等)をデコード、
+                                // HTMLタグを除去(>>1等のレス番指定やあっとちゃんねるずのURLにつくアンカータグ除去のため)
+                                // クラスに保存するデータは生データにする方針のため。再度アンカーなどを付けるのは各クライアントに任せる
                                 threadLine.Body = stritpTag(HttpUtility.HtmlDecode(m.Groups["body"].Value.Replace("<br>", "\n")));
                                 listTreadLines.Add(threadLine);
                             }
@@ -369,27 +373,20 @@ namespace NichanUrlParser
                 }
             }
         }
-        
+
         // <summary>
         // オブジェクトに設定されたURLから各コンテンツへアクセスするURLやパーシング用パラメータを生成
-        // baseUrl              板INDEXのURL
-        // threadRootUrl        スレッドのURLからスレッドID部分を除いたもの
-        // threadI              スレッドの識別IDL
-        // subjectDelimString   subject.txtの1行内の項目区切り文字
-        // datDelimStrings      datファイルの1行内の項目区切り文字
-        // subjectDelimString   subject.txtの1行区切り文字
-        // threadRootUrlFormat  スレッドURLを生成するためのフォーマット(string.Format準拠)
         // </summary>
         public bool setUrls()
         {
+            // 内部処理用変数の初期化
             string baseUrlRegex = "";
             string threadUrlRegex = "";
             string datUrlFormat = "";
+            // メンバ変数の初期化
             baseUrl = "";
             threadRootUrl = "";
             threadUrl = "";
-            threadName = "";
-            bbsName = "";
             datUrl = "";
             bbsName = "";
             bbsType = "";
@@ -399,6 +396,9 @@ namespace NichanUrlParser
             subjectDelimStrings = "";
             datDelimStrings = "";
             threadRootUrlFormat = "";
+
+            threadName = "";
+            bbsName = "";
             listTreadLines.Clear();
             bool ret = false;
             // 設定ファイルからドメイン判別正規表現を読み込み、渡されたURLのチェック
@@ -429,13 +429,14 @@ namespace NichanUrlParser
                         }
                         catch (Exception e)
                         {
-                            System.Console.WriteLine("設定ファイルが正しくありません。" + e.Message);
-                        }catch
+                            throw new NichanUrlParserException("設定ファイルが正しくありません。" + e.Message);
+                        }
+                        catch
                         {
-                            System.Console.WriteLine("設定ファイルが正しくありません。");
+                            throw new NichanUrlParserException("設定ファイルが正しくありません。");
                         }
 
-                            // URL種別の判別とクラスオブジェクト変数へのURL保存
+                        // URL種別の判別とクラスオブジェクト変数へのURL保存
 
                         // スレッドURLパースのRegexオブジェクトを作成
                         System.Text.RegularExpressions.Regex rThread =
