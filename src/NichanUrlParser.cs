@@ -369,7 +369,8 @@ namespace NichanUrlParser
                     HttpRequestMessage reqMsg = new HttpRequestMessage();
                     reqMsg.Headers.Add("Cache-Control", "no-cache");
                     reqMsg.Headers.Add("Accept", "text/plain");
-                    System.Console.WriteLine("現在のdatSize："+datSize);
+                    //System.Console.WriteLine("\n\n\n\n\n\n");
+                    //System.Console.WriteLine("現在のdatSize：" + datSize);
                     if (datSize > 0)
                     {
                         reqMsg.Headers.Add("Accept-Encoding", "identity");
@@ -386,6 +387,7 @@ namespace NichanUrlParser
                         reqUrl = datUrl + (listTreadLines.Count + 1).ToString() + "-";
                     }
                     httpClient.BaseAddress = new Uri(reqUrl);
+                    System.Console.WriteLine("現在のreqUrl：" + reqUrl);
                     Regex rdatRegex = new Regex(datRegex, RegexOptions.IgnoreCase | RegexOptions.Singleline);
                     Task<Stream> stream = null;
                     ObservableCollection<ThreadLine> bufListthreadLines = new ObservableCollection<ThreadLine>();
@@ -395,10 +397,10 @@ namespace NichanUrlParser
                         await Task.Run(() =>
                         {
                             // リクエストヘッダを要求
-                            System.Console.WriteLine("要求リクエストヘッダ：" + reqMsg.Headers);
                             response = httpClient.SendAsync(reqMsg);
-                            System.Console.WriteLine("レスポンスコード：" + (Int32)response.Result.StatusCode);
-                            System.Console.WriteLine("レスポンスのリクエストヘッダ：" + response.Result.RequestMessage.Headers);
+                            //System.Console.WriteLine("要求リクエストヘッダ：" + reqMsg.Headers);
+                            //System.Console.WriteLine("レスポンスコード：" + (Int32)response.Result.StatusCode);
+                            //System.Console.WriteLine("レスポンスのリクエストヘッダ：" + response.Result.RequestMessage.Headers);
                             if (
                                 response.Result.StatusCode == System.Net.HttpStatusCode.OK
                                 || response.Result.StatusCode == System.Net.HttpStatusCode.PartialContent
@@ -430,7 +432,7 @@ namespace NichanUrlParser
                                     httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "gzip");
                                 }
                                 // 実体アクセス処理
-                                stream = httpClient.GetStreamAsync(datUrl);
+                                stream = httpClient.GetStreamAsync(reqUrl);
                                 // 受信データサイズ計算用Encodingインスタンス
                                 Encoding enc = System.Text.Encoding.GetEncoding(encoding);
                                 using (StreamReader reader = new StreamReader(stream.Result, enc))
@@ -510,14 +512,11 @@ namespace NichanUrlParser
                         isSetLastModified = false;
                     }
                     //Etag  = response.Result.Content.Headers.GetValues("Etag").ToString();
-                    System.Console.WriteLine("LastModified:" + LastModified.ToString(lastModifiedFormat, CultureInfo.CreateSpecificCulture("en-US")));
-                    System.Console.WriteLine("datSize:" + datSize);
-                    System.Console.WriteLine(DateTime.Now.ToString() + " : 取得完了" + bufListthreadLines.Count.ToString() + "件");
+                    //System.Console.WriteLine("LastModified:" + LastModified.ToString(lastModifiedFormat, CultureInfo.CreateSpecificCulture("en-US")));
+                    //System.Console.WriteLine("datSize:" + datSize);
+                    //System.Console.WriteLine(DateTime.Now.ToString() + " : 取得完了" + bufListthreadLines.Count.ToString() + "件");
                     foreach (ThreadLine res in bufListthreadLines)
                     {
-                        System.Console.WriteLine(res.Name);
-                        System.Console.WriteLine(res.Body);
-                        System.Console.WriteLine(res.DateFormat);
                         listTreadLines.Add(res);
                     }
                 }

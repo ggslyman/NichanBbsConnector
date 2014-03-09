@@ -20,30 +20,13 @@
         <DockPanel x:Name="DoclPanelLog" DockPanel.Dock="Bottom" HorizontalAlignment="Stretch" LastChildFill="True" Width="auto" Height="50" VerticalAlignment="Top">
             <TextBox DockPanel.Dock="Bottom" x:Name="textMsg" HorizontalAlignment="Stretch" Height="50" TextWrapping="Wrap" VerticalAlignment="Bottom" ScrollViewer.CanContentScroll="True" AllowDrop="False" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsTabStop="False"/>
         </DockPanel>
-        <StackPanel CanHorizontallyScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto">
-            <Button x:Name="buttonReroad" Content="Reload" HorizontalAlignment="Left" Height="20" VerticalAlignment="Top" Width="100" SnapsToDevicePixels="True" Click="buttonReroad_Click" />
-            <ListView x:Name="listViewThreadView" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ClipToBounds="True" >
-                <ListView.View>
-                    <GridView>
-                        <GridViewColumn>
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel>
-                                        <StackPanel>
-                                            <TextBlock Text="{Binding Name}" />
-                                            <TextBlock Text="{Binding Url}" Padding="3" />
-                                            <Line/>
-                                        </StackPanel>
-                                        <TextBlock Text="{Binding DateFormat}" Padding="3" />
-                                        <TextBlock Text="{Binding Id}" TextWrapping="Wrap" Padding="3" />
-                                        <TextBlock Text="{Binding Body}" TextWrapping="Wrap" Padding="3" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                    </GridView>
-                </ListView.View>
-            </ListView>
+        <StackPanel CanHorizontallyScroll="True" ScrollViewer.VerticalScrollBarVisibility="Disabled" UseLayoutRounding="True" CanVerticallyScroll="True">
+            <StackPanel CanHorizontallyScroll="True" ScrollViewer.VerticalScrollBarVisibility="Disabled" UseLayoutRounding="True" CanVerticallyScroll="True">
+                <DataGrid x:Name="datGridThread" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" EnableColumnVirtualization="True" IsReadOnly="True" IsTextSearchEnabled="True" MaxHeight="400"/>
+            </StackPanel>
+            <StackPanel CanHorizontallyScroll="True" ScrollViewer.VerticalScrollBarVisibility="Disabled" UseLayoutRounding="True" CanVerticallyScroll="True">
+                <Button x:Name="buttonReroad" Content="Reload" HorizontalAlignment="Left" Height="20" VerticalAlignment="Top" Width="100" SnapsToDevicePixels="True" Click="buttonReroad_Click" />
+            </StackPanel>
         </StackPanel>
     </DockPanel>
 </Window>

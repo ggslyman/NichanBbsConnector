@@ -44,7 +44,7 @@ namespace NichanUrlParserUi
         private async Task getThread()
         {
             await nps.getThreadLines();
-            listViewThreadView.ItemsSource = nps.ListTreadLines;
+            datGridThread.ItemsSource = nps.ListTreadLines;
         }
 
         private void setLabel()
