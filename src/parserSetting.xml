@@ -11,6 +11,7 @@
         <threadUrlRegex>(http://.+2ch\.net/)test/read.cgi/(\w+)/(\d+)/</threadUrlRegex>
         <threadRootUrlFormat>{0}test/read.cgi/{1}/</threadRootUrlFormat>
         <datUrlFormat>{0}{1}/dat/{2}.dat</datUrlFormat>
+        <datDiffRequest>range</datDiffRequest>
         <encoding>Shift_JIS</encoding>
         <bbsEncoding>Shift_JIS</bbsEncoding>
         <maxResCount>1000</maxResCount>
@@ -27,6 +28,7 @@
         <threadUrlRegex>(http://jbbs.livedoor.jp|http://jbbs.shitaraba.net/)bbs/read.cgi/(\w+/\d+)/(\d+)/</threadUrlRegex>
         <threadRootUrlFormat>{0}bbs/read.cgi/{1}/</threadRootUrlFormat>
         <datUrlFormat>{0}bbs/rawmode.cgi/{1}/{2}/</datUrlFormat>
+        <datDiffRequest>resNo</datDiffRequest>
         <encoding>EUC-JP</encoding>
         <bbsEncoding>EUC-JP</bbsEncoding>
         <maxResCount>1000</maxResCount>
@@ -43,6 +45,7 @@
         <threadUrlRegex>(http://yy.+\.60\.kg/|http://yy.+\.kakiko\.com/)test/read.cgi/(\w+)/(\d+)/</threadUrlRegex>
         <threadRootUrlFormat>{0}test/read.cgi/{1}/</threadRootUrlFormat>
         <datUrlFormat>{0}{1}/dat/{2}.dat</datUrlFormat>
+        <datDiffRequest>range</datDiffRequest>
         <encoding>Shift_JIS</encoding>
         <bbsEncoding>Shift_JIS</bbsEncoding>
         <maxResCount>1001</maxResCount>
@@ -55,13 +58,13 @@
         <subjectDelimStrings><![CDATA[<>]]></subjectDelimStrings>
         <idDelimStrings><![CDATA[ ID:]]></idDelimStrings>
         <domainRegex>http://www.+\.atchs\.jp</domainRegex>
-        <encoding>Shift_JIS</encoding>
-        <bbsEncoding>UTF-8</bbsEncoding>
         <baseUrlRegex>(http://www.+\.atchs\.jp/)(\w+)/</baseUrlRegex>
         <threadUrlRegex>(http://www.+\.atchs\.jp/)test/read.cgi/(\w+)/(\d+)/</threadUrlRegex>
         <threadRootUrlFormat>{0}test/read.cgi/{1}/</threadRootUrlFormat>
         <datUrlFormat>{0}{1}/dat/{2}.dat</datUrlFormat>
-        <encoding></encoding>
+        <datDiffRequest>range</datDiffRequest>
+        <encoding>Shift_JIS</encoding>
+        <bbsEncoding>UTF-8</bbsEncoding>
         <maxResCount>1000</maxResCount>
         <datRegex><![CDATA[(?<name>.*?)<>(?<url>.*?)<>\d{2}(?<date>\d{2}/\d{2}/\d{2}?)\(.*\) (?<time>\d{2}\:\d{2}\:\d{2}?)( ID:)?(?<id>.*?)<>(?<body>.*?)<>]]></datRegex>
     </bbs>

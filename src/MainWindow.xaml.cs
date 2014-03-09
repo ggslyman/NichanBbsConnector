@@ -39,16 +39,12 @@ namespace NichanUrlParserUi
             datGridBbsList.ItemsSource = listBbs;
             dataGridSubjects.ItemsSource = nps.ListSubjects;
             setLabel();
-            addMsg(nps.Encoding);
-            addMsg(nps.BbsEncoding);
         }
 
         private async Task getThread()
         {
             await nps.getThreadLines();
             listViewThreadView.ItemsSource = nps.ListTreadLines;
-            addMsg(nps.DatSize.ToString());
-            addMsg(nps.DatUrl);
         }
 
         private void setLabel()
@@ -71,6 +67,7 @@ namespace NichanUrlParserUi
             datGridBbsList.IsEnabled = enabled;
             listBoxUrl.IsEnabled = enabled;
             buttonSetUrl.IsEnabled = enabled;
+            buttonReroad.IsEnabled = enabled;
         }
 
         public MainWindow()
@@ -129,6 +126,13 @@ namespace NichanUrlParserUi
 
                 webLoadControlEnabled(true);
             }
+        }
+
+        private async void buttonReroad_Click(object sender, RoutedEventArgs e)
+        {
+            webLoadControlEnabled(false);
+            await getThread();
+            webLoadControlEnabled(true);
         }
 
     }

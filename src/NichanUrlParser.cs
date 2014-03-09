@@ -9,6 +9,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Net.Http;
 using System.Web;
+using System.Globalization;
 
 namespace NichanUrlParser
 {
@@ -72,6 +73,12 @@ namespace NichanUrlParser
         // </summary>
         private string datDelimStrings = "";
         // <summary>
+        // datファイルの差分取得方法
+        // range：ヘッダ指定
+        // resNo：レス番号指定
+        // </summary>
+        private string datDiffRequest = "";
+        // <summary>
         // スレッドルートURLの変換用フォーマット
         // </summary>
         private string threadRootUrlFormat = "";
@@ -89,9 +96,12 @@ namespace NichanUrlParser
         private string bbsEncoding = "";
 
         // <summary>
-        // 取得したdatのbyte数
+        // 取得したdatの各種差分取得用データ
         // </summary>
-        private int datSize;
+        private long datSize;
+        private DateTimeOffset LastModified;
+        private bool isSetLastModified = false;
+
 
         // <summary>
         // subject.txtの内容を格納するコレクション
@@ -212,7 +222,7 @@ namespace NichanUrlParser
         }
 
         // 現在のdatサイズのバイト数を確認するためのデバッグ関数
-        public int DatSize
+        public long DatSize
         {
             get { return datSize; }
         }
@@ -351,65 +361,164 @@ namespace NichanUrlParser
         // </summary>
         public async Task getThreadLines()
         {
+            string lastModifiedFormat = "r";
             if (datUrl != "")
             {
                 using (System.Net.Http.HttpClient httpClient = new System.Net.Http.HttpClient())
                 {
-                    httpClient.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
-                    httpClient.DefaultRequestHeaders.Add("Accept", "text/plain");
-                    //if (listTreadLines.Count > 0)
-                    //{
-                    //    httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "identity");
-                    //}
-                    //else
-                    //{ 
-                        httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "gzip");
-                    //}
-
-                    Regex rdatRegex = new Regex(datRegex, RegexOptions.IgnoreCase | RegexOptions.Singleline);
-                    System.Console.WriteLine(datRegex);
-                    System.Console.WriteLine(datRegex);
-                    Stream stream = await httpClient.GetStreamAsync(datUrl);
-                    using (StreamReader reader = new StreamReader(stream, System.Text.Encoding.GetEncoding(encoding)))
+                    HttpRequestMessage reqMsg = new HttpRequestMessage();
+                    reqMsg.Headers.Add("Cache-Control", "no-cache");
+                    reqMsg.Headers.Add("Accept", "text/plain");
+                    System.Console.WriteLine("現在のdatSize："+datSize);
+                    if (datSize > 0)
                     {
-                        ObservableCollection<ThreadLine> bufListthreadLines = new ObservableCollection<ThreadLine>();
-                        DateTime dt;
-                        int idx = 1;
+                        reqMsg.Headers.Add("Accept-Encoding", "identity");
+                        if (isSetLastModified)reqMsg.Headers.Add("If-Modified-Since", LastModified.ToString(lastModifiedFormat, CultureInfo.CreateSpecificCulture("en-US")));
+                        reqMsg.Headers.Add("Range", "bytes= " + (datSize - 1).ToString() + "-");
+                    }
+                    else
+                    {
+                        reqMsg.Headers.Add("Accept-Encoding", "gzip");
+                    }
+                    string reqUrl = datUrl;
+                    if (datDiffRequest == "resNo")
+                    {
+                        reqUrl = datUrl + (listTreadLines.Count + 1).ToString() + "-";
+                    }
+                    httpClient.BaseAddress = new Uri(reqUrl);
+                    Regex rdatRegex = new Regex(datRegex, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                    Task<Stream> stream = null;
+                    ObservableCollection<ThreadLine> bufListthreadLines = new ObservableCollection<ThreadLine>();
+                    Task<HttpResponseMessage> response = null;
+                    try
+                    {
                         await Task.Run(() =>
                         {
-                            ThreadLine threadLine = new ThreadLine();
-                            while (!reader.EndOfStream)
+                            // リクエストヘッダを要求
+                            System.Console.WriteLine("要求リクエストヘッダ：" + reqMsg.Headers);
+                            response = httpClient.SendAsync(reqMsg);
+                            System.Console.WriteLine("レスポンスコード：" + (Int32)response.Result.StatusCode);
+                            System.Console.WriteLine("レスポンスのリクエストヘッダ：" + response.Result.RequestMessage.Headers);
+                            if (
+                                response.Result.StatusCode == System.Net.HttpStatusCode.OK
+                                || response.Result.StatusCode == System.Net.HttpStatusCode.PartialContent
+                                || response.Result.StatusCode == System.Net.HttpStatusCode.RequestedRangeNotSatisfiable
+                              )
                             {
-                                string sDatetime = "";
-                                // 1行ごとに正規表現でthreadLineの各要素を取得
-                                string datLine = reader.ReadLine();
-                                //datSize += datLine.Length;
-                                Match m = rdatRegex.Match(datLine);
-                                if (m.Success)
+                                httpClient.DefaultRequestHeaders.Add("Accept", "text/plain");
+                                httpClient.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
+                                // 実体のリクエスト発生経路
+                                if (response.Result.StatusCode == System.Net.HttpStatusCode.OK && listTreadLines.Count == 0)
                                 {
-                                    threadLine.Name = m.Groups["name"].Value;
-                                    threadLine.Url = m.Groups["url"].Value;
-                                    // わいわいなどは西暦が下2ケタなのでむりくり4ケタに修正
-                                    if (Int32.Parse(m.Groups["date"].Value.Substring(0, 1)) >= 8)
-                                    {
-                                        sDatetime = "19" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
-                                    }
-                                    else
-                                    {
-                                        sDatetime = "20" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
-                                    }
-                                    dt = DateTime.Parse(sDatetime);
-                                    threadLine.Date = DateTime.Parse(sDatetime);
-                                    // 改行をhtmlタグから制御文字に変換、htmlエンコードされた特殊文字(&amp;等)をデコード、
-                                    // HTMLタグを除去(>>1等のレス番指定やあっとちゃんねるずのURLにつくアンカータグ除去のため)
-                                    // クラスに保存するデータは生データにする方針のため。再度アンカーなどを付けるのは各クライアントに任せる
-                                    threadLine.Body = stritpTag(HttpUtility.HtmlDecode(m.Groups["body"].Value.Replace("<br>", "\n")));
-                                    bufListthreadLines.Add(threadLine);
+                                    // 全件
+                                    httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "gzip");
                                 }
-                                idx++;
+                                else if (response.Result.StatusCode == System.Net.HttpStatusCode.PartialContent || response.Result.StatusCode == System.Net.HttpStatusCode.OK)
+                                {
+                                    // 差分
+                                    httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "identity");
+                                    if (isSetLastModified) reqMsg.Headers.Add("If-Modified-Since", LastModified.ToString(lastModifiedFormat, CultureInfo.CreateSpecificCulture("en-US")));
+                                    httpClient.DefaultRequestHeaders.Add("Range", "bytes= " + (datSize - 1).ToString() + "-");
+                                }
+                                else if (response.Result.StatusCode == System.Net.HttpStatusCode.RequestedRangeNotSatisfiable)
+                                {
+                                    // 全件取得しなおし
+                                    // 拾得済みdatサイズと格納済みdatをクリア
+                                    datSize = 0;
+                                    listTreadLines.Clear();
+                                    // 全件取得ヘッダ作成
+                                    httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "gzip");
+                                }
+                                // 実体アクセス処理
+                                stream = httpClient.GetStreamAsync(datUrl);
+                                // 受信データサイズ計算用Encodingインスタンス
+                                Encoding enc = System.Text.Encoding.GetEncoding(encoding);
+                                using (StreamReader reader = new StreamReader(stream.Result, enc))
+                                {
+                                    System.Console.WriteLine(DateTime.Now.ToString()+" : 取得開始");
+                                    DateTime dt;
+                                    int idx = 1;
+                                        while (!reader.EndOfStream)
+                                        {
+                                            try{
+                                                ThreadLine threadLine = new ThreadLine();
+                                                string sDatetime = "";
+                                                // 1行ごとに正規表現でthreadLineの各要素を取得
+                                                string datLine = reader.ReadLine();
+                                                datSize += enc.GetByteCount(datLine) + enc.GetByteCount("\n");
+                                                //System.Console.WriteLine("取得データサイズ : " + datSize.ToString());
+                                                Match m = rdatRegex.Match(datLine);
+                                                if (m.Success)
+                                                {
+                                                    threadLine.Name = m.Groups["name"].Value;
+                                                    threadLine.Url = m.Groups["url"].Value;
+                                                    // わいわいなどは西暦が下2ケタなのでむりくり4ケタに修正
+                                                    if (Int32.Parse(m.Groups["date"].Value.Substring(0, 1)) >= 8)
+                                                    {
+                                                        sDatetime = "19" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
+                                                    }
+                                                    else
+                                                    {
+                                                        sDatetime = "20" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
+                                                    }
+                                                    dt = DateTime.Parse(sDatetime);
+                                                    threadLine.Date = DateTime.Parse(sDatetime);
+                                                    // 改行をhtmlタグから制御文字に変換、htmlエンコードされた特殊文字(&amp;等)をデコード、
+                                                    // HTMLタグを除去(>>1等のレス番指定やあっとちゃんねるずのURLにつくアンカータグ除去のため)
+                                                    // クラスに保存するデータは生データにする方針のため。再度アンカーなどを付けるのは各クライアントに任せる
+                                                    threadLine.Body = stritpTag(HttpUtility.HtmlDecode(m.Groups["body"].Value.Replace("<br>", "\n")));
+                                                    bufListthreadLines.Add(threadLine);
+                                                }
+                                            }
+                                            catch (Exception e)
+                                            {
+                                                System.Console.WriteLine("Webアクセスに失敗しました。" + e.Message);
+                                                throw new NichanUrlParserException("Webアクセスに失敗しました。" + e.Message);
+                                            }
+                                            idx++;
+                                        }
+                                }
+                            }
+                            else
+                            {
+                                if (response.Result.StatusCode == System.Net.HttpStatusCode.NotModified)
+                                {
+                                    // 変更なし
+                                    // 何もせず非同期スレッドを終了
+                                }
+                                else
+                                {
+                                    // その他HTTPレスポンスエラーの処理
+                                    throw new NichanUrlParserException((Int32)response.Result.StatusCode + " [" + response.Result.StatusCode.ToString() + "] Webアクセスに失敗しました。");
+                                }
                             }
                         });
-                        listTreadLines = bufListthreadLines;
+                    }
+                    catch (Exception e)
+                    {
+                        System.Console.WriteLine("非同期中に何らかのエラーが発生しました。" + e.Message);
+                        throw new NichanUrlParserException("非同期中に何らかのエラーが発生しました。" + e.Message);
+                    }
+                    if (response.Result.Content.Headers.Contains("LastModified"))
+                    {
+                        LastModified = (DateTimeOffset)response.Result.Content.Headers.LastModified;
+                        isSetLastModified = true;
+                    }
+                    else
+                    {
+                        LastModified = new DateTimeOffset();
+                        isSetLastModified = false;
+                    }
+                    //Etag  = response.Result.Content.Headers.GetValues("Etag").ToString();
+                    System.Console.WriteLine("LastModified:" + LastModified.ToString(lastModifiedFormat, CultureInfo.CreateSpecificCulture("en-US")));
+                    System.Console.WriteLine("datSize:" + datSize);
+                    System.Console.WriteLine(DateTime.Now.ToString() + " : 取得完了" + bufListthreadLines.Count.ToString() + "件");
+                    foreach (ThreadLine res in bufListthreadLines)
+                    {
+                        System.Console.WriteLine(res.Name);
+                        System.Console.WriteLine(res.Body);
+                        System.Console.WriteLine(res.DateFormat);
+                        listTreadLines.Add(res);
                     }
                 }
             }
@@ -436,6 +545,7 @@ namespace NichanUrlParser
             threadId = "";
             subjectDelimStrings = "";
             datDelimStrings = "";
+            datDiffRequest = "";
             threadRootUrlFormat = "";
             datSize = 0;
             threadName = "";
@@ -467,14 +577,11 @@ namespace NichanUrlParser
                             datDelimStrings = eBbs.SelectSingleNode("datDelimStrings").InnerText;
                             threadRootUrlFormat = eBbs.SelectSingleNode("threadRootUrlFormat").InnerText;
                             datRegex = eBbs.SelectSingleNode("datRegex").InnerText;
+                            datDiffRequest = eBbs.SelectSingleNode("datDiffRequest").InnerText;
                         }
                         catch (Exception e)
                         {
                             throw new NichanUrlParserException("設定ファイルが正しくありません。" + e.Message);
-                        }
-                        catch
-                        {
-                            throw new NichanUrlParserException("設定ファイルが正しくありません。");
                         }
 
                         // URL種別の判別とクラスオブジェクト変数へのURL保存
