@@ -14,6 +14,7 @@ using System.Windows.Shapes;
 using System.Collections;
 using System.Windows.Forms;
 using System.Collections.ObjectModel;
+using NichanBbsConnector;
 
 namespace NichanUrlParserUi
 {
@@ -23,33 +24,33 @@ namespace NichanUrlParserUi
     public partial class MainWindow : Window
     {
         static public MainWindow Instance;
-        private static NichanUrlParser.NichanUrlParser nps = new NichanUrlParser.NichanUrlParser();
+        private static NichanBbsConnector.NichanBbsConnector nbc = new NichanBbsConnector.NichanBbsConnector();
         private ObservableCollection<Bbs> listBbs = new ObservableCollection<Bbs>();
 
         private async Task getUrl(string url)
         {
-            nps.setUrl(url);
-            nps.setUrls();
-            await nps.setNamesAndSubjectsAsync();
+            nbc.setUrl(url);
+            nbc.setUrls();
+            await nbc.setNamesAndSubjectsAsync();
             Bbs bufBbs = new Bbs();
-            bufBbs.Title = nps.BbsName;
-            bufBbs.Url = nps.BaseUrl;
+            bufBbs.Title = nbc.BbsName;
+            bufBbs.Url = nbc.BaseUrl;
             bufBbs.Order = 1;
             listBbs.Add(bufBbs);
             datGridBbsList.ItemsSource = listBbs;
-            dataGridSubjects.ItemsSource = nps.ListSubjects;
+            dataGridSubjects.ItemsSource = nbc.ListSubjects;
             setLabel();
         }
 
         private async Task getThread()
         {
-            await nps.getThreadLines();
-            datGridThread.ItemsSource = nps.ListTreadLines;
+            await nbc.getThreadLines();
+            datGridThread.ItemsSource = nbc.ListTreadLines;
         }
 
         private void setLabel()
         {
-            this.Title = nps.ThreadName + " - " + nps.BbsName;
+            this.Title = nbc.ThreadName + " - " + nbc.BbsName;
             //labelBase.Content = nps.BaseUrl;
             //labelThread.Content = nps.ThreadUrl;
             //labelDat.Content = nps.DatUrl;
@@ -119,7 +120,7 @@ namespace NichanUrlParserUi
             if (dataGridSubjects.Items.Count > 0)
             {
                 webLoadControlEnabled(false);
-                NichanUrlParser.Subject subject = (NichanUrlParser.Subject)dataGridSubjects.SelectedItem;
+                NichanBbsConnector.Subject subject = (NichanBbsConnector.Subject)dataGridSubjects.SelectedItem;
 
                 await getUrl(subject.Url);
                 await getThread();

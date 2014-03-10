@@ -11,9 +11,9 @@ using System.Net.Http;
 using System.Web;
 using System.Globalization;
 
-namespace NichanUrlParser
+namespace NichanBbsConnector
 {
-    public class NichanUrlParser
+    public class NichanBbsConnector
     {
         // <summary>
         // 設定ファイル名定義
@@ -189,7 +189,7 @@ namespace NichanUrlParser
         // コンストラクタ
         // 設定ファイルの存在チェックのみを行いインスタンスを返す
         // </summary>
-        public NichanUrlParser()
+        public NichanBbsConnector()
         {
             if (System.IO.File.Exists(@settingFile))
             {
@@ -364,18 +364,19 @@ namespace NichanUrlParser
             string lastModifiedFormat = "r";
             if (datUrl != "")
             {
+                System.Console.WriteLine("\n\n\n\n\n\n");
                 using (System.Net.Http.HttpClient httpClient = new System.Net.Http.HttpClient())
                 {
+                    string ifModifiedSince = LastModified.ToString(lastModifiedFormat, CultureInfo.CreateSpecificCulture("en-US"));
                     HttpRequestMessage reqMsg = new HttpRequestMessage();
+                    bool clearThreadLines = false;
                     reqMsg.Headers.Add("Cache-Control", "no-cache");
                     reqMsg.Headers.Add("Accept", "text/plain");
-                    //System.Console.WriteLine("\n\n\n\n\n\n");
-                    //System.Console.WriteLine("現在のdatSize：" + datSize);
+                    System.Console.WriteLine("現在のdatSize：" + datSize);
                     if (datSize > 0)
                     {
                         reqMsg.Headers.Add("Accept-Encoding", "identity");
-                        if (isSetLastModified)reqMsg.Headers.Add("If-Modified-Since", LastModified.ToString(lastModifiedFormat, CultureInfo.CreateSpecificCulture("en-US")));
-                        reqMsg.Headers.Add("Range", "bytes= " + (datSize - 1).ToString() + "-");
+                        if (isSetLastModified) reqMsg.Headers.Add("If-Modified-Since", ifModifiedSince);
                     }
                     else
                     {
@@ -399,8 +400,9 @@ namespace NichanUrlParser
                             // リクエストヘッダを要求
                             response = httpClient.SendAsync(reqMsg);
                             //System.Console.WriteLine("要求リクエストヘッダ：" + reqMsg.Headers);
-                            //System.Console.WriteLine("レスポンスコード：" + (Int32)response.Result.StatusCode);
+                            System.Console.WriteLine("レスポンスコード：" + (Int32)response.Result.StatusCode);
                             //System.Console.WriteLine("レスポンスのリクエストヘッダ：" + response.Result.RequestMessage.Headers);
+                            bool diffCheck = false;
                             if (
                                 response.Result.StatusCode == System.Net.HttpStatusCode.OK
                                 || response.Result.StatusCode == System.Net.HttpStatusCode.PartialContent
@@ -419,17 +421,32 @@ namespace NichanUrlParser
                                 {
                                     // 差分
                                     httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "identity");
-                                    if (isSetLastModified) reqMsg.Headers.Add("If-Modified-Since", LastModified.ToString(lastModifiedFormat, CultureInfo.CreateSpecificCulture("en-US")));
+                                    if (isSetLastModified) httpClient.DefaultRequestHeaders.Add("If-Modified-Since", ifModifiedSince);
+
                                     httpClient.DefaultRequestHeaders.Add("Range", "bytes= " + (datSize - 1).ToString() + "-");
+                                    
+                                    if (datDiffRequest == "range") diffCheck = true;
                                 }
                                 else if (response.Result.StatusCode == System.Net.HttpStatusCode.RequestedRangeNotSatisfiable)
                                 {
                                     // 全件取得しなおし
                                     // 拾得済みdatサイズと格納済みdatをクリア
+                                    Console.WriteLine("データ破損、全件再取得");
                                     datSize = 0;
-                                    listTreadLines.Clear();
+                                    clearThreadLines = true;
                                     // 全件取得ヘッダ作成
                                     httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "gzip");
+                                }
+                                // datに更新があればLast-Modifiedを更新
+                                if (response.Result.Content.Headers.Contains("Last-Modified"))
+                                {
+                                    LastModified = (DateTimeOffset)response.Result.Content.Headers.LastModified;
+                                    isSetLastModified = true;
+                                }
+                                else
+                                {
+                                    LastModified = new DateTimeOffset();
+                                    isSetLastModified = false;
                                 }
                                 // 実体アクセス処理
                                 stream = httpClient.GetStreamAsync(reqUrl);
@@ -447,6 +464,23 @@ namespace NichanUrlParser
                                                 string sDatetime = "";
                                                 // 1行ごとに正規表現でthreadLineの各要素を取得
                                                 string datLine = reader.ReadLine();
+                                                if (
+                                                        idx == 1
+                                                        && diffCheck
+                                                )
+                                                { 
+                                                    if(datLine == "")
+                                                    {
+                                                        System.Console.WriteLine("差分１件目の改行検出");
+                                                        break;
+                                                    }
+                                                    else
+                                                    {
+                                                        System.Console.WriteLine("あぼーん検出");
+                                                        clearThreadLines = true;
+                                                        break;
+                                                    }
+                                                }
                                                 datSize += enc.GetByteCount(datLine) + enc.GetByteCount("\n");
                                                 //System.Console.WriteLine("取得データサイズ : " + datSize.ToString());
                                                 Match m = rdatRegex.Match(datLine);
@@ -498,23 +532,13 @@ namespace NichanUrlParser
                     }
                     catch (Exception e)
                     {
-                        System.Console.WriteLine("非同期中に何らかのエラーが発生しました。" + e.Message);
-                        throw new NichanUrlParserException("非同期中に何らかのエラーが発生しました。" + e.Message);
-                    }
-                    if (response.Result.Content.Headers.Contains("LastModified"))
-                    {
-                        LastModified = (DateTimeOffset)response.Result.Content.Headers.LastModified;
-                        isSetLastModified = true;
-                    }
-                    else
-                    {
-                        LastModified = new DateTimeOffset();
-                        isSetLastModified = false;
+                        System.Console.WriteLine("非同期中に何らかのエラーが発生しました。" + e.Message + e.StackTrace);
+                        throw new NichanUrlParserException("非同期中に何らかのエラーが発生しました。" + e.Message + e.StackTrace);
                     }
                     //Etag  = response.Result.Content.Headers.GetValues("Etag").ToString();
-                    //System.Console.WriteLine("LastModified:" + LastModified.ToString(lastModifiedFormat, CultureInfo.CreateSpecificCulture("en-US")));
                     //System.Console.WriteLine("datSize:" + datSize);
                     //System.Console.WriteLine(DateTime.Now.ToString() + " : 取得完了" + bufListthreadLines.Count.ToString() + "件");
+                    if (clearThreadLines) listTreadLines.Clear();
                     foreach (ThreadLine res in bufListthreadLines)
                     {
                         listTreadLines.Add(res);
@@ -634,10 +658,10 @@ namespace NichanUrlParser
 #endif
         }
     }
-    class NichanUrlParserException : System.ApplicationException
+    class NichanBbsConnectorException : System.ApplicationException
     {
         // メッセージの始めにクラス名を付けてみただけ。
-        public NichanUrlParserException(string msg)
+        public NichanBbsConnectorException(string msg)
             : base("NichanUrlParserException : " + msg)
         {
         }

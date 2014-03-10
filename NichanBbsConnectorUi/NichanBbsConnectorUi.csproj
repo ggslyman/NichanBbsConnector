@@ -7,8 +7,8 @@
     <ProjectGuid>{216346F0-1D8B-4F8D-8D60-11423E1DC655}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>NichanUrlParserUi</RootNamespace>
-    <AssemblyName>NichanUrlParserUi</AssemblyName>
+    <RootNamespace>NichanBbsConnectorUi</RootNamespace>
+    <AssemblyName>NichanBbsConnectorUi</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
@@ -110,7 +110,6 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="NichanUrlParser.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -138,9 +137,10 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="parserSetting.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <ProjectReference Include="..\NichanBbsConnector\NichanBbsConnector.csproj">
+      <Project>{7225991a-e7ed-4cc1-a201-f99c50d4551f}</Project>
+      <Name>NichanBbsConnector</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

@@ -22,10 +22,10 @@
         </DockPanel>
         <StackPanel CanHorizontallyScroll="True" ScrollViewer.VerticalScrollBarVisibility="Disabled" UseLayoutRounding="True" CanVerticallyScroll="True">
             <StackPanel CanHorizontallyScroll="True" ScrollViewer.VerticalScrollBarVisibility="Disabled" UseLayoutRounding="True" CanVerticallyScroll="True">
-                <DataGrid x:Name="datGridThread" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" EnableColumnVirtualization="True" IsReadOnly="True" IsTextSearchEnabled="True" MaxHeight="400"/>
+                <Button x:Name="buttonReroad" Content="Reload" HorizontalAlignment="Left" Height="20" VerticalAlignment="Top" Width="100" SnapsToDevicePixels="True" Click="buttonReroad_Click" />
             </StackPanel>
             <StackPanel CanHorizontallyScroll="True" ScrollViewer.VerticalScrollBarVisibility="Disabled" UseLayoutRounding="True" CanVerticallyScroll="True">
-                <Button x:Name="buttonReroad" Content="Reload" HorizontalAlignment="Left" Height="20" VerticalAlignment="Top" Width="100" SnapsToDevicePixels="True" Click="buttonReroad_Click" />
+                <DataGrid x:Name="datGridThread" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" EnableColumnVirtualization="True" IsReadOnly="True" IsTextSearchEnabled="True" MaxHeight="400"/>
             </StackPanel>
         </StackPanel>
     </DockPanel>
