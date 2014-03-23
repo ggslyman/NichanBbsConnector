@@ -13,6 +13,7 @@ using System.Globalization;
 
 namespace NichanBbsConnector
 {
+    // にちゃん互換掲示板へのアクセスを共通化する為のクラスライブラリ
     public class NichanBbsConnector
     {
         // メンバー変数定義
@@ -98,6 +99,12 @@ namespace NichanBbsConnector
         private string bbsEncoding = "";
 
         // <summary>
+        // subject.txtのパーサパターン
+        // ここは基本的に固定で大丈夫だとは思うが、これだけ定数にするのも微妙？
+        // </summary>
+        private static string threadTitleRegex = "(?<id>\\d+?)\\.\\w+...*{0}(?<title>.*?)\\((?<resCount>\\d+?)\\)$";
+
+        // <summary>
         // 取得したdatの各種差分取得用データ
         // </summary>
         private long datSize;
@@ -114,7 +121,7 @@ namespace NichanBbsConnector
         // </summary>
         private ObservableCollection<ThreadLine> listTreadLines = new ObservableCollection<ThreadLine>();
 
-        //以下各種URLのゲッター
+        //以下各種メンバ変数のゲッター
         public string BaseUrl
         {
             get { return baseUrl; }
@@ -223,15 +230,11 @@ namespace NichanBbsConnector
             return bbsId + ":" + bbsType + "\n" + baseUrl + "\n" + threadUrl + "\n" + threadRootUrl + "\n";
         }
 
-        // 現在のdatサイズのバイト数を確認するためのデバッグ関数
+        // 現在のdatサイズのバイト数を返す(デバッグ用)
         public long DatSize
         {
             get { return datSize; }
         }
-
-        // subject.txtのパーサパターン
-        // ここは基本的に固定で大丈夫だとは思うが、これだけ定数にするのも微妙？
-        private static string threadTitleRegex = "(?<id>\\d+?)\\.\\w+...*{0}(?<title>.*?)\\((?<resCount>\\d+?)\\)$";
 
         // 一括コール用ファンクション
         public async Task setNamesAndSubjectsAsync()
@@ -264,7 +267,8 @@ namespace NichanBbsConnector
                     // タイトルタグを正規表現パース
                     string titleRegex = "<title>(?<title>.*?)</title>";
                     Regex retitleRegex = new Regex(titleRegex, RegexOptions.IgnoreCase | RegexOptions.Singleline);
-                    for (Match m = retitleRegex.Match(baseHtml); m.Success; m = m.NextMatch())
+                    Match m = retitleRegex.Match(baseHtml);
+                    if(m.Success)
                     {
                         bbsName = m.Groups["title"].Value.Trim();
                     }
@@ -367,7 +371,9 @@ namespace NichanBbsConnector
             if (datUrl != "")
             {
                 clog("\n\n\n\n\n\n");
-                using (System.Net.Http.HttpClient httpClient = new System.Net.Http.HttpClient())
+                HttpClientHandler handler = new HttpClientHandler();
+                handler.AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate;
+                using (System.Net.Http.HttpClient httpClient = new System.Net.Http.HttpClient(handler))
                 {
                     string ifModifiedSince = LastModified.ToString(lastModifiedFormat, CultureInfo.CreateSpecificCulture("en-US"));
                     HttpRequestMessage reqMsg = new HttpRequestMessage();
@@ -379,6 +385,7 @@ namespace NichanBbsConnector
                     {
                         reqMsg.Headers.Add("Accept-Encoding", "identity");
                         if (isSetLastModified) reqMsg.Headers.Add("If-Modified-Since", ifModifiedSince);
+                        reqMsg.Headers.Add("Range", "bytes= " + (datSize - 1).ToString() + "-");
                     }
                     else
                     {
@@ -404,7 +411,6 @@ namespace NichanBbsConnector
                             //clog("要求リクエストヘッダ：" + reqMsg.Headers);
                             clog("レスポンスコード：" + (Int32)response.Result.StatusCode);
                             //clog("レスポンスのリクエストヘッダ：" + response.Result.RequestMessage.Headers);
-                            bool diffCheck = false;
                             if (
                                 response.Result.StatusCode == System.Net.HttpStatusCode.OK
                                 || response.Result.StatusCode == System.Net.HttpStatusCode.PartialContent
@@ -423,11 +429,11 @@ namespace NichanBbsConnector
                                 {
                                     // 差分
                                     httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "identity");
-                                    if (isSetLastModified) httpClient.DefaultRequestHeaders.Add("If-Modified-Since", ifModifiedSince);
-
-                                    httpClient.DefaultRequestHeaders.Add("Range", "bytes= " + (datSize - 1).ToString() + "-");
-                                    
-                                    if (datDiffRequest == "range") diffCheck = true;
+                                    //if (isSetLastModified) httpClient.DefaultRequestHeaders.Add("If-Modified-Since", ifModifiedSince);
+                                    if (datDiffRequest == "range")
+                                    {
+                                        httpClient.DefaultRequestHeaders.Add("Range", "bytes= " + (datSize - 1).ToString() + "-");
+                                    }
                                 }
                                 else if (response.Result.StatusCode == System.Net.HttpStatusCode.RequestedRangeNotSatisfiable)
                                 {
@@ -454,67 +460,63 @@ namespace NichanBbsConnector
                                 stream = httpClient.GetStreamAsync(reqUrl);
                                 // 受信データサイズ計算用Encodingインスタンス
                                 Encoding enc = System.Text.Encoding.GetEncoding(encoding);
+                                clog(encoding);
+                                //enc = System.Text.Encoding.GetEncoding("UTF-8");
+                                clog(httpClient.DefaultRequestHeaders.ToString());
                                 using (StreamReader reader = new StreamReader(stream.Result, enc))
                                 {
                                     clog(DateTime.Now.ToString() + " : 取得開始");
                                     DateTime dt;
-                                    int idx = 1;
-                                        while (!reader.EndOfStream)
+                                    while (!reader.EndOfStream)
+                                    {
+                                        try
                                         {
-                                            try{
-                                                ThreadLine threadLine = new ThreadLine();
-                                                string sDatetime = "";
-                                                // 1行ごとに正規表現でthreadLineの各要素を取得
-                                                string datLine = reader.ReadLine();
-                                                if (
-                                                        idx == 1
-                                                        && diffCheck
-                                                )
-                                                { 
-                                                    if(datLine == "")
-                                                    {
-                                                        clog("差分１件目の改行検出");
-                                                        break;
-                                                    }
-                                                    else
-                                                    {
-                                                        clog("あぼーん検出");
-                                                        clearThreadLines = true;
-                                                        break;
-                                                    }
-                                                }
-                                                datSize += enc.GetByteCount(datLine) + enc.GetByteCount("\n");
-                                                //System.Console.WriteLine("取得データサイズ : " + datSize.ToString());
-                                                Match m = rdatRegex.Match(datLine);
-                                                if (m.Success)
-                                                {
-                                                    threadLine.Name = m.Groups["name"].Value;
-                                                    threadLine.Url = m.Groups["url"].Value;
-                                                    // わいわいなどは西暦が下2ケタなのでむりくり4ケタに修正
-                                                    if (Int32.Parse(m.Groups["date"].Value.Substring(0, 1)) >= 8)
-                                                    {
-                                                        sDatetime = "19" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
-                                                    }
-                                                    else
-                                                    {
-                                                        sDatetime = "20" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
-                                                    }
-                                                    dt = DateTime.Parse(sDatetime);
-                                                    threadLine.Date = DateTime.Parse(sDatetime);
-                                                    // 改行をhtmlタグから制御文字に変換、htmlエンコードされた特殊文字(&amp;等)をデコード、
-                                                    // HTMLタグを除去(>>1等のレス番指定やあっとちゃんねるずのURLにつくアンカータグ除去のため)
-                                                    // クラスに保存するデータは生データにする方針のため。再度アンカーなどを付けるのは各クライアントに任せる
-                                                    threadLine.Body = stritpTag(HttpUtility.HtmlDecode(m.Groups["body"].Value.Replace("<br>", "\n")));
-                                                    bufListthreadLines.Add(threadLine);
-                                                }
-                                            }
-                                            catch (Exception e)
+                                            ThreadLine threadLine = new ThreadLine();
+                                            string sDatetime = "";
+                                            // 1行ごとに正規表現でthreadLineの各要素を取得
+                                            string datLine = reader.ReadLine();
+                                            clog("取得データ:"+datLine);
+                                            datSize += enc.GetByteCount(datLine) + enc.GetByteCount("\n");
+                                            clog("取得データサイズ : " + datSize.ToString());
+                                            clog(datLine);
+                                            Match m = rdatRegex.Match(datLine);
+                                            if (m.Success)
                                             {
-                                                clog("Webアクセスに失敗しました。" + e.Message);
-                                                throw new NichanBbsConnectorException("Webアクセスに失敗しました。" + e.Message + e.StackTrace);
+                                                threadLine.Name = m.Groups["name"].Value;
+                                                threadLine.Url = m.Groups["url"].Value;
+                                                // わいわいなどは西暦が下2ケタなのでむりくり4ケタに修正
+                                                if (Int32.Parse(m.Groups["date"].Value.Substring(0, 1)) >= 8)
+                                                {
+                                                    sDatetime = "19" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
+                                                }
+                                                else
+                                                {
+                                                    sDatetime = "20" + m.Groups["date"].Value + " " + m.Groups["time"].Value;
+                                                }
+                                                dt = DateTime.Parse(sDatetime);
+                                                threadLine.Date = DateTime.Parse(sDatetime);
+                                                // 改行をhtmlタグから制御文字に変換、htmlエンコードされた特殊文字(&amp;等)をデコード、
+                                                // HTMLタグを除去(>>1等のレス番指定やあっとちゃんねるずのURLにつくアンカータグ除去のため)
+                                                // クラスに保存するデータは生データにする方針のため。再度アンカーなどを付けるのは各クライアントに任せる
+                                                threadLine.Body = stritpTag(HttpUtility.HtmlDecode(m.Groups["body"].Value.Replace("<br>", "\n")));
+                                                bufListthreadLines.Add(threadLine);
                                             }
-                                            idx++;
+                                            else
+                                            {
+                                                clog("あぼーん検出");
+                                                clearThreadLines = true;
+                                                break;
+                                            }
                                         }
+                                        catch (Exception e)
+                                        {
+                                            clog("Webアクセスに失敗しました。" + e.Message);
+                                            throw new NichanBbsConnectorException("Webアクセスに失敗しました。" + e.Message + e.StackTrace);
+                                        }
+                                        finally
+                                        {
+                                        }
+                                    }
                                 }
                             }
                             else
@@ -538,7 +540,7 @@ namespace NichanBbsConnector
                         throw new NichanBbsConnectorException("非同期中に何らかのエラーが発生しました。" + e.Message + e.StackTrace);
                     }
                     //Etag  = response.Result.Content.Headers.GetValues("Etag").ToString();
-                    //System.Console.WriteLine("datSize:" + datSize);
+                    clog("datSize:" + datSize);
                     //System.Console.WriteLine(DateTime.Now.ToString() + " : 取得完了" + bufListthreadLines.Count.ToString() + "件");
                     if (clearThreadLines) listTreadLines.Clear();
                     foreach (ThreadLine res in bufListthreadLines)
@@ -547,6 +549,7 @@ namespace NichanBbsConnector
                     }
                 }
             }
+            clog("取得完了");
         }
 
         // <summary>
@@ -580,71 +583,79 @@ namespace NichanBbsConnector
             // 設定ファイルからドメイン判別正規表現を読み込み、渡されたURLのチェック
             using (System.Xml.XmlNodeList eDomain = xml.GetElementsByTagName("domainRegex"))
             {
-                if (eDomain.Count == 0) throw new NichanBbsConnectorException("設定ファイルが正しくありません。");
-                for (int i = 0; i < eDomain.Count; i++)
+                try
                 {
-                    if (System.Text.RegularExpressions.Regex.IsMatch(
-                        parseUrl,
-                        @eDomain[i].InnerText,
-                        System.Text.RegularExpressions.RegexOptions.ECMAScript))
+                    if (eDomain.Count == 0) throw new NichanBbsConnectorException("設定ファイルが正しくありません。");
+                    for (int i = 0; i < eDomain.Count; i++)
                     {
-                        try
+                        if (System.Text.RegularExpressions.Regex.IsMatch(
+                            parseUrl,
+                            @eDomain[i].InnerText,
+                            System.Text.RegularExpressions.RegexOptions.ECMAScript))
                         {
-                            // マッチした設定の定義を読み込み
-                            System.Xml.XmlNode eBbs = eDomain[i].ParentNode;
-                            bbsId = Int32.Parse(eBbs.SelectSingleNode("id").InnerText);
-                            bbsType = eBbs.SelectSingleNode("type").InnerText;
-                            baseUrlRegex = eBbs.SelectSingleNode("baseUrlRegex").InnerText;
-                            threadUrlRegex = eBbs.SelectSingleNode("threadUrlRegex").InnerText;
-                            datUrlFormat = eBbs.SelectSingleNode("datUrlFormat").InnerText;
-                            encoding = eBbs.SelectSingleNode("encoding").InnerText;
-                            bbsEncoding = eBbs.SelectSingleNode("bbsEncoding").InnerText;
-                            subjectDelimStrings = eBbs.SelectSingleNode("subjectDelimStrings").InnerText;
-                            datDelimStrings = eBbs.SelectSingleNode("datDelimStrings").InnerText;
-                            threadRootUrlFormat = eBbs.SelectSingleNode("threadRootUrlFormat").InnerText;
-                            datRegex = eBbs.SelectSingleNode("datRegex").InnerText;
-                            datDiffRequest = eBbs.SelectSingleNode("datDiffRequest").InnerText;
-                        }
-                        catch (Exception e)
-                        {
-                            throw new NichanBbsConnectorException("設定ファイルが正しくありません。" + e.Message + e.StackTrace);
-                        }
-
-                        // URL種別の判別とクラスオブジェクト変数へのURL保存
-
-                        // スレッドURLパースのRegexオブジェクトを作成
-                        System.Text.RegularExpressions.Regex rThread =
-                            new System.Text.RegularExpressions.Regex(
-                                @threadUrlRegex,
-                                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                        System.Text.RegularExpressions.Match mThread = rThread.Match(parseUrl);
-                        if (mThread.Success)
-                        {
-                            baseUrl = mThread.Groups[1].Value + mThread.Groups[2].Value + "/";
-                            threadUrl = mThread.Groups[0].Value;
-                            threadId = mThread.Groups[3].Value;
-                            threadRootUrl = string.Format(threadRootUrlFormat, mThread.Groups[1].Value, mThread.Groups[2].Value);
-                            datUrl = string.Format(datUrlFormat, mThread.Groups[1].Value, mThread.Groups[2].Value, mThread.Groups[3].Value);
-                            ret = true;
-                        }
-                        else
-                        {
-                            // ベースURLパースのRegexオブジェクトを作成
-                            System.Text.RegularExpressions.Regex rBase =
-                                new System.Text.RegularExpressions.Regex(
-                                    @baseUrlRegex,
-                                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                            System.Text.RegularExpressions.Match mBase = rBase.Match(parseUrl);
-                            if (mBase.Success)
+                            try
                             {
-                                //一致した対象が見つかったときキャプチャした部分文字列を表示
-                                baseUrl = mBase.Groups[1].Value + mBase.Groups[2].Value + "/";
-                                threadRootUrl = string.Format(threadRootUrlFormat, mBase.Groups[1].Value, mBase.Groups[2].Value);
+                                // マッチした設定の定義を読み込み
+                                System.Xml.XmlNode eBbs = eDomain[i].ParentNode;
+                                bbsId = Int32.Parse(eBbs.SelectSingleNode("id").InnerText);
+                                bbsType = eBbs.SelectSingleNode("type").InnerText;
+                                baseUrlRegex = eBbs.SelectSingleNode("baseUrlRegex").InnerText;
+                                threadUrlRegex = eBbs.SelectSingleNode("threadUrlRegex").InnerText;
+                                datUrlFormat = eBbs.SelectSingleNode("datUrlFormat").InnerText;
+                                encoding = eBbs.SelectSingleNode("encoding").InnerText;
+                                bbsEncoding = eBbs.SelectSingleNode("bbsEncoding").InnerText;
+                                subjectDelimStrings = eBbs.SelectSingleNode("subjectDelimStrings").InnerText;
+                                datDelimStrings = eBbs.SelectSingleNode("datDelimStrings").InnerText;
+                                threadRootUrlFormat = eBbs.SelectSingleNode("threadRootUrlFormat").InnerText;
+                                datRegex = eBbs.SelectSingleNode("datRegex").InnerText;
+                                datDiffRequest = eBbs.SelectSingleNode("datDiffRequest").InnerText;
+                            }
+                            catch (Exception e)
+                            {
+                                throw new NichanBbsConnectorException("設定ファイルが正しくありません" + e.Message + e.StackTrace);
+                            }
+
+                            // URL種別の判別とクラスオブジェクト変数へのURL保存
+
+                            // スレッドURLパースのRegexオブジェクトを作成
+                            System.Text.RegularExpressions.Regex rThread =
+                                new System.Text.RegularExpressions.Regex(
+                                    @threadUrlRegex,
+                                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                            System.Text.RegularExpressions.Match mThread = rThread.Match(parseUrl);
+                            if (mThread.Success)
+                            {
+                                baseUrl = mThread.Groups[1].Value + mThread.Groups[2].Value + "/";
+                                threadUrl = mThread.Groups[0].Value;
+                                threadId = mThread.Groups[3].Value;
+                                threadRootUrl = string.Format(threadRootUrlFormat, mThread.Groups[1].Value, mThread.Groups[2].Value);
+                                datUrl = string.Format(datUrlFormat, mThread.Groups[1].Value, mThread.Groups[2].Value, mThread.Groups[3].Value);
                                 ret = true;
+                            }
+                            else
+                            {
+                                // ベースURLパースのRegexオブジェクトを作成
+                                System.Text.RegularExpressions.Regex rBase =
+                                    new System.Text.RegularExpressions.Regex(
+                                        @baseUrlRegex,
+                                        System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                                System.Text.RegularExpressions.Match mBase = rBase.Match(parseUrl);
+                                if (mBase.Success)
+                                {
+                                    //一致した対象が見つかったときキャプチャした部分文字列を表示
+                                    baseUrl = mBase.Groups[1].Value + mBase.Groups[2].Value + "/";
+                                    threadRootUrl = string.Format(threadRootUrlFormat, mBase.Groups[1].Value, mBase.Groups[2].Value);
+                                    ret = true;
+                                }
                             }
                         }
                     }
                 }
+                catch (Exception e)
+                {
+                    throw new NichanBbsConnectorException("例外が発生しました" + e.Message + e.StackTrace);
+                }
+
             }
             return ret;
         }
