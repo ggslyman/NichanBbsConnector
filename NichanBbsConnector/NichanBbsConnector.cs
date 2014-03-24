@@ -370,7 +370,7 @@ namespace NichanBbsConnector
             string lastModifiedFormat = "r";
             if (datUrl != "")
             {
-                clog("\n\n\n\n\n\n");
+                //clog("\n\n\n\n\n\n");
                 HttpClientHandler handler = new HttpClientHandler();
                 handler.AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate;
                 using (System.Net.Http.HttpClient httpClient = new System.Net.Http.HttpClient(handler))
@@ -380,7 +380,7 @@ namespace NichanBbsConnector
                     bool clearThreadLines = false;
                     reqMsg.Headers.Add("Cache-Control", "no-cache");
                     reqMsg.Headers.Add("Accept", "text/plain");
-                    System.Console.WriteLine("現在のdatSize：" + datSize);
+                    //clog("現在のdatSize：" + datSize);
                     if (datSize > 0)
                     {
                         reqMsg.Headers.Add("Accept-Encoding", "identity");
@@ -397,7 +397,7 @@ namespace NichanBbsConnector
                         reqUrl = datUrl + (listTreadLines.Count + 1).ToString() + "-";
                     }
                     httpClient.BaseAddress = new Uri(reqUrl);
-                    clog("現在のreqUrl：" + reqUrl);
+                    //clog("現在のreqUrl：" + reqUrl);
                     Regex rdatRegex = new Regex(datRegex, RegexOptions.IgnoreCase | RegexOptions.Singleline);
                     Task<Stream> stream = null;
                     ObservableCollection<ThreadLine> bufListthreadLines = new ObservableCollection<ThreadLine>();
@@ -406,10 +406,11 @@ namespace NichanBbsConnector
                     {
                         await Task.Run(() =>
                         {
+                            bool getDiff = false;
                             // リクエストヘッダを要求
                             response = httpClient.SendAsync(reqMsg);
                             //clog("要求リクエストヘッダ：" + reqMsg.Headers);
-                            clog("レスポンスコード：" + (Int32)response.Result.StatusCode);
+                            //clog("レスポンスコード：" + (Int32)response.Result.StatusCode);
                             //clog("レスポンスのリクエストヘッダ：" + response.Result.RequestMessage.Headers);
                             if (
                                 response.Result.StatusCode == System.Net.HttpStatusCode.OK
@@ -427,6 +428,7 @@ namespace NichanBbsConnector
                                 }
                                 else if (response.Result.StatusCode == System.Net.HttpStatusCode.PartialContent || response.Result.StatusCode == System.Net.HttpStatusCode.OK)
                                 {
+                                    getDiff = true;
                                     // 差分
                                     httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "identity");
                                     //if (isSetLastModified) httpClient.DefaultRequestHeaders.Add("If-Modified-Since", ifModifiedSince);
@@ -439,7 +441,7 @@ namespace NichanBbsConnector
                                 {
                                     // 全件取得しなおし
                                     // 拾得済みdatサイズと格納済みdatをクリア
-                                    clog("データ破損、全件再取得");
+                                    //clog("データ破損、全件再取得");
                                     datSize = 0;
                                     clearThreadLines = true;
                                     // 全件取得ヘッダ作成
@@ -465,20 +467,43 @@ namespace NichanBbsConnector
                                 clog(httpClient.DefaultRequestHeaders.ToString());
                                 using (StreamReader reader = new StreamReader(stream.Result, enc))
                                 {
-                                    clog(DateTime.Now.ToString() + " : 取得開始");
+                                    //clog(DateTime.Now.ToString() + " : 取得開始");
                                     DateTime dt;
+                                    int idx = 0;
                                     while (!reader.EndOfStream)
                                     {
                                         try
                                         {
+                                            idx++;
+                                            // 差分取得時の先頭1バイト判別
+                                            if (idx == 1 && getDiff)
+                                            {
+                                                char[] charbuffer = new char[1];
+                                                int result = 0;
+                                                result = reader.Read(charbuffer, 0, 1);
+                                                //clog("差分確認");
+                                                int code = (int)charbuffer[0];
+                                                if (code == 10 || code == 13)
+                                                {
+                                                    //clog("差分正常");
+                                                    continue;
+                                                }
+                                                else
+                                                {
+                                                    clog("あぼーん検出");
+                                                    datSize = 0;
+                                                    clearThreadLines = true;
+                                                    break;
+                                                }
+                                            }
                                             ThreadLine threadLine = new ThreadLine();
                                             string sDatetime = "";
                                             // 1行ごとに正規表現でthreadLineの各要素を取得
                                             string datLine = reader.ReadLine();
-                                            clog("取得データ:"+datLine);
                                             datSize += enc.GetByteCount(datLine) + enc.GetByteCount("\n");
-                                            clog("取得データサイズ : " + datSize.ToString());
-                                            clog(datLine);
+                                            //clog("取得データ:" + datLine);
+                                            //clog("取得データサイズ : " + datSize.ToString());
+                                            //clog(datLine);
                                             Match m = rdatRegex.Match(datLine);
                                             if (m.Success)
                                             {
@@ -499,14 +524,16 @@ namespace NichanBbsConnector
                                                 // HTMLタグを除去(>>1等のレス番指定やあっとちゃんねるずのURLにつくアンカータグ除去のため)
                                                 // クラスに保存するデータは生データにする方針のため。再度アンカーなどを付けるのは各クライアントに任せる
                                                 threadLine.Body = stritpTag(HttpUtility.HtmlDecode(m.Groups["body"].Value.Replace("<br>", "\n")));
-                                                bufListthreadLines.Add(threadLine);
                                             }
                                             else
                                             {
-                                                clog("あぼーん検出");
-                                                clearThreadLines = true;
-                                                break;
+                                                // 削除されたレスと判断して空データをセット
+                                                threadLine.Name = null;
+                                                threadLine.Url = null;
+                                                threadLine.Date = new DateTime();
+                                                threadLine.Body = null;
                                             }
+                                            bufListthreadLines.Add(threadLine);
                                         }
                                         catch (Exception e)
                                         {
@@ -540,7 +567,7 @@ namespace NichanBbsConnector
                         throw new NichanBbsConnectorException("非同期中に何らかのエラーが発生しました。" + e.Message + e.StackTrace);
                     }
                     //Etag  = response.Result.Content.Headers.GetValues("Etag").ToString();
-                    clog("datSize:" + datSize);
+                    //clog("datSize:" + datSize);
                     //System.Console.WriteLine(DateTime.Now.ToString() + " : 取得完了" + bufListthreadLines.Count.ToString() + "件");
                     if (clearThreadLines) listTreadLines.Clear();
                     foreach (ThreadLine res in bufListthreadLines)
@@ -549,7 +576,6 @@ namespace NichanBbsConnector
                     }
                 }
             }
-            clog("取得完了");
         }
 
         // <summary>
